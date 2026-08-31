@@ -183,26 +183,28 @@ export class IntentDetector {
     if (/(?:folder|फ़ोल्डर|डायरेक्टरी|directory)/i.test(lower)) {
       if (/(?:banao|create|make|new|नया|बनाओ)/i.test(lower)) {
         const folderNameMatch = raw.match(/(?:naam|name)\s+["']?([a-zA-Z0-9_-]+)["']?/i) || 
-          raw.match(/(?:folder|directory)\s+["']?([a-zA-Z0-9_-]+)["']?/i) ||
+          raw.match(/(?:folder|directory|फ़ोल्डर)\s+["']?([a-zA-Z0-9_-]+)["']?/i) ||
           raw.match(/(?:banao|create)\s+["']?([a-zA-Z0-9_-]+)["']?/i);
-        const folderName = (folderNameMatch && !['ek', 'banao', 'karo'].includes(folderNameMatch[1].toLowerCase())) 
+        const folderName = (folderNameMatch && !['ek', 'banao', 'karo', 'par', 'pe', 'mein', 'desktop'].includes(folderNameMatch[1].toLowerCase())) 
           ? folderNameMatch[1].trim() 
           : 'NewFolder';
-        const targetPath = `${process.env.USERPROFILE || 'C:\\Users\\Default'}\\Desktop\\${folderName}`;
         return {
           primaryIntent: 'FILE_OPERATION',
-          confidence: 0.95,
-          entities: { folderPath: targetPath },
-          suggestedTools: [{ tool: 'create_folder', args: { path: targetPath } }]
+          confidence: 0.98,
+          entities: { folderPath: folderName, appName: `${folderName} folder` },
+          suggestedTools: [{ tool: 'create_folder', args: { path: folderName } }]
         };
       }
-      if (/(?:kholo|open|खोलो)/i.test(lower)) {
-        const folderNameMatch = raw.match(/(?:folder|directory)\s+["']?([a-zA-Z0-9_\-\s]+)["']?/i);
-        const folderName = folderNameMatch ? folderNameMatch[1].trim() : 'Desktop';
+      if (/(?:kholo|open|खोलो|dekho)/i.test(lower)) {
+        const folderNameMatch = raw.match(/([a-zA-Z0-9_-]+)\s+(?:folder|फ़ोल्डर|directory)/i) || 
+          raw.match(/(?:folder|directory|फ़ोल्डर)\s+["']?([a-zA-Z0-9_-]+)["']?/i);
+        const folderName = (folderNameMatch && !['ek', 'kholo', 'open', 'karo', 'par', 'pe', 'mein'].includes(folderNameMatch[1].toLowerCase()))
+          ? folderNameMatch[1].trim() 
+          : 'Desktop';
         return {
           primaryIntent: 'OPEN_FOLDER',
-          confidence: 0.95,
-          entities: { folderPath: folderName },
+          confidence: 0.98,
+          entities: { folderPath: folderName, appName: `${folderName} folder` },
           suggestedTools: [{ tool: 'open_folder', args: { path: folderName } }]
         };
       }
@@ -211,21 +213,20 @@ export class IntentDetector {
     if (/(?:file|फ़ाइल|फाइल|document|text file)/i.test(lower)) {
       if (/(?:banao|create|make|write|लिखो|बनाओ)/i.test(lower)) {
         const fileNameMatch = raw.match(/(?:naam|name)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i) || 
-          raw.match(/(?:file)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i) ||
+          raw.match(/(?:file|फ़ाइल)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i) ||
           raw.match(/(?:banao|create)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i);
-        const fileName = (fileNameMatch && !['ek', 'banao', 'karo'].includes(fileNameMatch[1].toLowerCase())) 
+        const fileName = (fileNameMatch && !['ek', 'banao', 'karo', 'par', 'pe', 'mein', 'desktop'].includes(fileNameMatch[1].toLowerCase())) 
           ? fileNameMatch[1].trim() 
           : 'note.txt';
-        const targetPath = `${process.env.USERPROFILE || 'C:\\Users\\Default'}\\Desktop\\${fileName}`;
         return {
           primaryIntent: 'FILE_OPERATION',
-          confidence: 0.95,
-          entities: { filePath: targetPath },
-          suggestedTools: [{ tool: 'create_file', args: { path: targetPath, content: `Created by WAR AI on ${new Date().toLocaleString()}` } }]
+          confidence: 0.98,
+          entities: { filePath: fileName, appName: `${fileName} file` },
+          suggestedTools: [{ tool: 'create_file', args: { path: fileName, content: `Created by WAR AI on ${new Date().toLocaleString()}` } }]
         };
       }
       if (/(?:delete|hatao|remove|डिलीट|हटाओ)/i.test(lower)) {
-        const fileNameMatch = raw.match(/(?:file)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i);
+        const fileNameMatch = raw.match(/(?:file|फ़ाइल)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i);
         const fileName = fileNameMatch ? fileNameMatch[1].trim() : '';
         return {
           primaryIntent: 'FILE_OPERATION',
