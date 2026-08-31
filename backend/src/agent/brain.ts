@@ -174,9 +174,14 @@ export class AgentBrain {
 
       // Handle dynamic context from previous step (e.g. project discovery path passed to VS Code or terminal)
       if (step.tool === 'open_vscode_project' || step.tool === 'open_terminal' || step.tool === 'execute_command') {
-        if (!step.args?.path && !step.args?.cwd && this.memory.getContext().currentProject?.path) {
-          if (step.tool === 'open_vscode_project') step.args = { ...step.args, path: this.memory.getContext().currentProject!.path };
-          if (step.tool === 'open_terminal' || step.tool === 'execute_command') step.args = { ...step.args, cwd: this.memory.getContext().currentProject!.path };
+        const activeProject = this.memory.getContext().currentProject;
+        if (activeProject?.path) {
+          if (step.tool === 'open_vscode_project') {
+            step.args = { ...step.args, path: activeProject.path };
+          }
+          if (step.tool === 'open_terminal' || step.tool === 'execute_command') {
+            step.args = { ...step.args, cwd: activeProject.path };
+          }
         }
       }
 

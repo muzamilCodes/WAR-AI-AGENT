@@ -118,19 +118,30 @@ export class IntentDetector {
 
     // 6. Project Open in VS Code (e.g. "Sportify project kholo", "VS Code mein sportify kholo")
     if (projectName || (hasVSCode && /(?:project|प्रोजेक्ट)/i.test(lower))) {
-      const pName = projectName || (hasVSCode ? '' : 'project');
+      const pName = projectName || (hasVSCode ? 'Sportify' : 'project');
+      const wantsRun = /(?:run|start|chalao|चलाओ|रन)/i.test(lower);
+      const wantsTerminal = /(?:terminal|टर्मिनल)/i.test(lower);
+
+      const tools: Array<{ tool: ToolName; args: Record<string, any> }> = [
+        { tool: 'project_discovery', args: { name: pName } },
+        { tool: 'open_vscode_project', args: { path: pName } }
+      ];
+
+      if (wantsTerminal || wantsRun) {
+        tools.push({ tool: 'open_terminal', args: {} });
+        if (wantsRun) {
+          tools.push({ tool: 'execute_command', args: { command: 'npm run dev', runInBackground: true } });
+        }
+      }
+
       return {
         primaryIntent: 'OPEN_PROJECT',
-        confidence: 0.92,
+        confidence: 0.95,
         entities: {
           projectName: pName,
           appName: 'Visual Studio Code'
         },
-        suggestedTools: pName ? [
-          { tool: 'project_discovery', args: { name: pName } }
-        ] : [
-          { tool: 'open_vscode', args: {} }
-        ]
+        suggestedTools: tools
       };
     }
 
