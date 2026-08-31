@@ -46,6 +46,84 @@ export class IntentDetector {
       };
     }
 
+    // 2. Direct Windows PC / Laptop Lock
+    if (/(?:lock|लॉक)/i.test(lower) && /(?:laptop|pc|computer|system|screen|लैपटॉप|पीसी|कंप्यूटर|स्क्रीन|karo|kar do)/i.test(lower)) {
+      return {
+        primaryIntent: 'RUN_COMMAND',
+        confidence: 0.98,
+        entities: { command: 'lock_workstation' },
+        suggestedTools: [{ tool: 'lock_workstation', args: {} }]
+      };
+    }
+
+    // Direct Show Desktop / Minimize All
+    if (/(?:desktop|डेस्कटॉप)/i.test(lower) && /(?:show|par jao|dekho|kholo|जाओ|देखो)/i.test(lower) || /(?:minimize all|sab minimize|सारे मिनिमाइज)/i.test(lower)) {
+      return {
+        primaryIntent: 'RUN_COMMAND',
+        confidence: 0.95,
+        entities: { command: 'minimize_all' },
+        suggestedTools: [{ tool: 'system_control', args: { action: 'minimize_all' } }]
+      };
+    }
+
+    // Volume Controls (Mute / Volume Up / Down)
+    if (/(?:volume|sound|आवाज|साउंड)/i.test(lower) || /(?:mute|म्यूट)/i.test(lower)) {
+      if (/(?:mute|silent|band|म्यूट|बंद)/i.test(lower)) {
+        return {
+          primaryIntent: 'KEYBOARD_MOUSE',
+          confidence: 0.95,
+          entities: {},
+          suggestedTools: [{ tool: 'system_control', args: { action: 'mute' } }]
+        };
+      }
+      if (/(?:badhao|up|increase|tez|बढ़ाओ|तेज)/i.test(lower)) {
+        return {
+          primaryIntent: 'KEYBOARD_MOUSE',
+          confidence: 0.95,
+          entities: {},
+          suggestedTools: [{ tool: 'system_control', args: { action: 'volume_up' } }]
+        };
+      }
+      if (/(?:kam|down|decrease|slow|कम|धीमा)/i.test(lower)) {
+        return {
+          primaryIntent: 'KEYBOARD_MOUSE',
+          confidence: 0.95,
+          entities: {},
+          suggestedTools: [{ tool: 'system_control', args: { action: 'volume_down' } }]
+        };
+      }
+    }
+
+    // Recycle bin empty
+    if (/(?:recycle bin|trash|रीसायकल बिन)/i.test(lower) && /(?:khali|empty|clean|saaf|खाली|साफ)/i.test(lower)) {
+      return {
+        primaryIntent: 'FILE_OPERATION',
+        confidence: 0.95,
+        entities: {},
+        suggestedTools: [{ tool: 'system_control', args: { action: 'recycle_bin' } }]
+      };
+    }
+
+    // Task Manager
+    if (/(?:task manager|टास्क मैनेजर)/i.test(lower)) {
+      return {
+        primaryIntent: 'OPEN_APP',
+        confidence: 0.95,
+        entities: { appName: 'Task Manager' },
+        suggestedTools: [{ tool: 'system_control', args: { action: 'task_manager' } }]
+      };
+    }
+
+    // Settings
+    if (/(?:settings|windows settings|सेटिंग्स)/i.test(lower) && /(?:kholo|open|खोलो)/i.test(lower)) {
+      return {
+        primaryIntent: 'OPEN_APP',
+        confidence: 0.95,
+        entities: { appName: 'Settings' },
+        suggestedTools: [{ tool: 'system_control', args: { action: 'settings' } }]
+      };
+    }
+
     // VS Code detection helper with typo-tolerance & Hindi Devanagari
     const hasVSCode = 
       /(?:v[s|d]?[-\s]?code|visual\s*studio\s*code|\bvsc\b|\bcode\b|vdscode|वीएस\s*कोड|विजुअल\s*स्टूडियो|कोड)/i.test(lower);

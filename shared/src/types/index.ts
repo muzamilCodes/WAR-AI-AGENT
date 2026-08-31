@@ -63,7 +63,10 @@ export type ToolName =
   | 'take_screenshot'
   | 'inspect_screen'
   | 'find_visible_text'
-  | 'detect_ui_element';
+  | 'detect_ui_element'
+  // System & OS Control
+  | 'lock_workstation'
+  | 'system_control';
 
 export interface ActionRequest {
   id: string;

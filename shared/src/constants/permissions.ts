@@ -26,6 +26,8 @@ export const TOOL_RISK_MAP: Record<ToolName, RiskLevel> = {
   find_visible_text: 'LOW',
   detect_ui_element: 'LOW',
   read_terminal_output: 'LOW',
+  lock_workstation: 'LOW',
+  system_control: 'LOW',
 
   // Medium Risk: Creation, benign interaction, typing, clicking
   create_folder: 'MEDIUM',

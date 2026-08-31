@@ -194,3 +194,9 @@ export const InspectScreenSchema = z.object({
 export const FindVisibleTextSchema = z.object({
   text: z.string().min(1, 'Text to search on screen is required')
 });
+
+export const LockWorkstationSchema = z.object({});
+
+export const SystemControlSchema = z.object({
+  action: z.enum(['lock', 'minimize_all', 'volume_up', 'volume_down', 'mute', 'settings', 'task_manager', 'recycle_bin'])
+});

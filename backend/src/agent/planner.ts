@@ -123,6 +123,8 @@ export class TaskPlanner {
       case 'stop_process': return 'Stop Active Operation';
       case 'press_key': return `Press Key: ${args.key || ''}`;
       case 'hotkey': return `Execute Shortcut: ${(args.keys || []).join('+')}`;
+      case 'lock_workstation': return 'Lock Windows Workstation';
+      case 'system_control': return `System Action: ${args.action || 'Execute'}`;
       default: return `Execute ${tool}`;
     }
   }
@@ -135,6 +137,8 @@ export class TaskPlanner {
       case 'project_discovery': return `Scanning workspace directories for matching project`;
       case 'execute_command': return `Running command safely in PowerShell with output monitoring`;
       case 'open_terminal': return `Spawning terminal in target working directory`;
+      case 'lock_workstation': return 'Locking Windows laptop session securely';
+      case 'system_control': return `Executing Windows system control "${args.action}"`;
       default: return `Performing ${tool} on Windows host with verification`;
     }
   }

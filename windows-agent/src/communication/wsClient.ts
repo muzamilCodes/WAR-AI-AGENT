@@ -10,6 +10,7 @@ import { BrowserController } from '../browser/browserController';
 import { KeyboardController } from '../keyboard/keyboardController';
 import { MouseController } from '../mouse/mouseController';
 import { ScreenController } from '../screen/screenController';
+import { SystemController } from '../system/systemController';
 import { AgentSecurity } from '../security/agentSecurity';
 
 export class AgentWSClient {
@@ -251,6 +252,20 @@ export class AgentWSClient {
           return await ScreenController.inspectScreen();
         case 'find_visible_text':
           return await ScreenController.findVisibleText(args.text);
+
+        // System & Workstation Control
+        case 'lock_workstation':
+          return await SystemController.lockWorkstation();
+        case 'system_control':
+          if (args.action === 'lock') return await SystemController.lockWorkstation();
+          if (args.action === 'minimize_all') return await SystemController.minimizeAll();
+          if (args.action === 'volume_up') return await SystemController.controlVolume('up');
+          if (args.action === 'volume_down') return await SystemController.controlVolume('down');
+          if (args.action === 'mute') return await SystemController.controlVolume('mute');
+          if (['settings', 'task_manager', 'recycle_bin'].includes(args.action)) {
+            return await SystemController.openSystemUtility(args.action);
+          }
+          return await SystemController.lockWorkstation();
 
         default:
           return {
