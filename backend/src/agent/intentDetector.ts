@@ -291,8 +291,10 @@ export class IntentDetector {
       };
     }
 
-    // 6. All Known Windows Applications (Chrome, Spotify, Notepad, VLC, Calculator, etc.)
+    // 6. All Known Windows Applications (Antigravity, Cursor, Chrome, Spotify, Notepad, VLC, Calculator, etc.)
     const knownApps: Array<{ keywords: RegExp; exe: string }> = [
+      { keywords: /(?:antigravity|anti\s*gravity|agy|एंटी\s*ग्रेविटी|इंटीग्रविटी|एंटीग्रेविटी|इंटीग्रिटी)/i, exe: 'Antigravity IDE' },
+      { keywords: /(?:cursor|कर्सर)/i, exe: 'Cursor' },
       { keywords: /(?:chrome|क्रोम|google chrome)/i, exe: 'chrome.exe' },
       { keywords: /(?:spotify|स्पॉटिफ़ाई|gana)/i, exe: 'spotify.exe' },
       { keywords: /(?:notepad|नोटपैड|text editor)/i, exe: 'notepad.exe' },
@@ -466,15 +468,18 @@ export class IntentDetector {
       };
     }
 
-    // 10. Generic "kholo" / "open" fallback for any named application
-    const genericOpenMatch = raw.match(/(?:open|kholo|chalao|khol do|start)\s+([a-zA-Z0-9_\-\.]+)/i) || raw.match(/([a-zA-Z0-9_\-\.]+)\s+(?:open|kholo|chalao|khol do|start)/i);
-    if (genericOpenMatch && !['karo', 'kar', 'do', 'please', 'aap', 'mera', 'meri', 'kuch', 'yeh', 'woh'].includes(genericOpenMatch[1].toLowerCase())) {
-      const targetApp = genericOpenMatch[1].trim();
+    // 10. Generic "kholo" / "open" fallback for ANY named application or target (Unicode & Devanagari supported)
+    const cleanGeneric = raw
+      .replace(/(?:open|kholo|chalao|khol do|start|karo|kar do|kar|batao|bataiye|please|kripya|खोलो|ओपन|चलाओ|करो|कर\s*दो|शुरू|में|par|pe|mein)/gi, '')
+      .replace(/[।.,!?]+/g, '')
+      .trim();
+
+    if (cleanGeneric && cleanGeneric.length >= 2 && !['kuch', 'yeh', 'woh', 'sab', 'aap', 'mera', 'meri', 'kya', 'hai', 'hain', 'karo'].includes(cleanGeneric.toLowerCase())) {
       return {
         primaryIntent: 'OPEN_APP',
-        confidence: 0.85,
-        entities: { appName: targetApp },
-        suggestedTools: [{ tool: 'open_application', args: { name: targetApp } }]
+        confidence: 0.9,
+        entities: { appName: cleanGeneric },
+        suggestedTools: [{ tool: 'open_application', args: { name: cleanGeneric } }]
       };
     }
 
