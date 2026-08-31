@@ -1,0 +1,37 @@
+{
+  "name": "war-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WAR AI - Your Personal AI Computer Agent for Windows",
+  "workspaces": [
+    "shared",
+    "backend",
+    "windows-agent",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n \"SHARED,BACKEND,AGENT,FRONTEND\" -c \"yellow,cyan,magenta,green\" \"npm run dev --workspace=shared\" \"npm run dev --workspace=backend\" \"npm run dev --workspace=windows-agent\" \"npm run dev --workspace=frontend\"",
+    "dev:shared": "npm run dev --workspace=shared",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:agent": "npm run dev --workspace=windows-agent",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspace=shared && npm run build --workspace=backend && npm run build --workspace=windows-agent && npm run build --workspace=frontend",
+    "test": "npm run test --workspace=backend && npm run test --workspace=windows-agent",
+    "start:agent": "npm run start --workspace=windows-agent",
+    "start:backend": "npm run start --workspace=backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "windows-automation",
+    "voice-ai",
+    "multilingual",
+    "computer-control"
+  ],
+  "author": "WAR AI Team",
+  "license": "MIT"
+}
