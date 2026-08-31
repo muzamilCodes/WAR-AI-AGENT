@@ -6,6 +6,7 @@ import { TaskPlanner } from './planner';
 import { PermissionManager } from '../services/permissionManager';
 import { DeviceManager } from '../services/deviceManager';
 import { AuditLogger } from '../services/auditLogger';
+import { LLMService } from '../services/llmService';
 
 export interface BrainProcessResult {
   message: ChatMessage;
@@ -107,29 +108,45 @@ export class AgentBrain {
     // If conversational only
     if (plan.steps.length === 0) {
       let replyText = '';
-      if (parsedIntent.primaryIntent === 'CONVERSATION') {
-        const desi = ['hindi', 'urdu', 'roman_hindi', 'roman_urdu', 'hinglish'].includes(language);
-        const lower = userText.toLowerCase();
 
-        if (/(?:hello|hi|hey|namaste|salam|हैलो|नमस्ते|सलाम)/i.test(lower)) {
-          replyText = desi
-            ? `Namaste boss! Main WAR AI aapki personal AI assistant hoon. Boliye, aapke PC par aaj kya open ya run karna hai? (e.g. "VS Code kholo", "Spotify run karo")`
-            : `Hello! I am WAR AI, your personal Windows PC assistant. What would you like to open or run today?`;
-        } else if (/(?:ready|taiyaar|haan|theek hai|shuru|रेडी|तैयार|हाँ|ठीक)/i.test(lower)) {
-          replyText = desi
-            ? `Bilkul ready boss! Batayein kaun sa app, project ya command execute karun?`
-            : `All set and ready! What task would you like to execute?`;
-        } else if (/(?:kya kar|help|madad|features|commands|क्या कर|मदद)/i.test(lower)) {
-          replyText = desi
-            ? `Main aapke PC par VS Code khol sakti hoon, projects load kar sakti hoon, terminal run kar sakti hoon, browser search aur screen inspect kar sakti hoon.`
-            : `I can launch VS Code, load and run your code projects, execute terminal commands, open browsers, and automate your Windows PC.`;
-        } else {
-          replyText = desi
-            ? `Ji boss! Batayein kya karna hai? (Jaise: "VS Code kholo", "Spotify run karo", "Chrome kholo")`
-            : `I'm listening! How can I help control your PC?`;
+      // 1. Try Google Gemini LLM reasoning if configured
+      if (LLMService.isLLMConfigured()) {
+        try {
+          const llmReply = await LLMService.generateConversationalResponse(userText, language);
+          if (llmReply) {
+            replyText = llmReply;
+          }
+        } catch (err) {
+          console.warn('[AgentBrain] LLM query fallback to local engine:', err);
         }
-      } else {
-        replyText = MultilingualEngine.generateNaturalResponse('clarify', language);
+      }
+
+      // 2. Local Fallback Engine if LLM did not provide response
+      if (!replyText) {
+        if (parsedIntent.primaryIntent === 'CONVERSATION') {
+          const desi = ['hindi', 'urdu', 'roman_hindi', 'roman_urdu', 'hinglish'].includes(language);
+          const lower = userText.toLowerCase();
+
+          if (/(?:hello|hi|hey|namaste|salam|हैलो|नमस्ते|सलाम)/i.test(lower)) {
+            replyText = desi
+              ? `Namaste boss! Main WAR AI aapki personal AI assistant hoon. Boliye, aapke PC par aaj kya open ya run karna hai? (e.g. "VS Code kholo", "Spotify run karo")`
+              : `Hello! I am WAR AI, your personal Windows PC assistant. What would you like to open or run today?`;
+          } else if (/(?:ready|taiyaar|haan|theek hai|shuru|रेडी|तैयार|हाँ|ठीक)/i.test(lower)) {
+            replyText = desi
+              ? `Bilkul ready boss! Batayein kaun sa app, project ya command execute karun?`
+              : `All set and ready! What task would you like to execute?`;
+          } else if (/(?:kya kar|help|madad|features|commands|क्या कर|मदद)/i.test(lower)) {
+            replyText = desi
+              ? `Main aapke PC par VS Code khol sakti hoon, projects load kar sakti hoon, terminal run kar sakti hoon, browser search aur screen inspect kar sakti hoon.`
+              : `I can launch VS Code, load and run your code projects, execute terminal commands, open browsers, and automate your Windows PC.`;
+          } else {
+            replyText = desi
+              ? `Ji boss! Batayein kya karna hai? (Jaise: "VS Code kholo", "Spotify run karo", "Chrome kholo")`
+              : `I'm listening! How can I help control your PC?`;
+          }
+        } else {
+          replyText = MultilingualEngine.generateNaturalResponse('clarify', language);
+        }
       }
 
       this.memory.addMessage('assistant', replyText);
