@@ -57,7 +57,7 @@ export class IntentDetector {
     }
 
     // Direct Show Desktop / Minimize All
-    if (/(?:desktop|डेस्कटॉप)/i.test(lower) && /(?:show|par jao|dekho|kholo|जाओ|देखो)/i.test(lower) || /(?:minimize all|sab minimize|सारे मिनिमाइज)/i.test(lower)) {
+    if ((/(?:desktop|डेस्कटॉप)/i.test(lower) && /(?:show|par jao|dekho|kholo|जाओ|देखो)/i.test(lower)) || /(?:minimize all|sab minimize|सारे मिनिमाइज)/i.test(lower)) {
       return {
         primaryIntent: 'RUN_COMMAND',
         confidence: 0.95,
@@ -114,7 +114,7 @@ export class IntentDetector {
       };
     }
 
-    // Settings
+    // Windows Settings
     if (/(?:settings|windows settings|सेटिंग्स)/i.test(lower) && /(?:kholo|open|खोलो)/i.test(lower)) {
       return {
         primaryIntent: 'OPEN_APP',
@@ -124,16 +124,39 @@ export class IntentDetector {
       };
     }
 
-    // VS Code detection helper with typo-tolerance & Hindi Devanagari
-    const hasVSCode = 
-      /(?:v[s|d]?[-\s]?code|visual\s*studio\s*code|\bvsc\b|\bcode\b|vdscode|वीएस\s*कोड|विजुअल\s*स्टूडियो|कोड)/i.test(lower);
+    // 3. YouTube & Web / Browser Search (Priority over terminal "chalao")
+    if (lower.includes('youtube') || lower.includes('यूट्यूब')) {
+      const searchMatch = raw.replace(/(?:youtube|यूट्यूब|kholo|open|par|pe|chalao|play|search|gana|song|dekho|video)/gi, '').trim();
+      const url = searchMatch 
+        ? `https://www.youtube.com/results?search_query=${encodeURIComponent(searchMatch)}`
+        : 'https://youtube.com';
+      return {
+        primaryIntent: 'BROWSER_ACTION',
+        confidence: 0.98,
+        entities: { browserUrl: url, searchQuery: searchMatch },
+        suggestedTools: [{ tool: 'open_browser', args: { url } }]
+      };
+    }
 
-    // Project detection (e.g. Sportify, project name, etc.)
-    const hasProjectMatch = lower.match(/(?:project|वाला|प्रोजेक्ट|folder)\s+([a-zA-Z0-9_-]+)/i) || 
-      lower.match(/([a-zA-Z0-9_-]+)\s+(?:project|वाला|प्रोजेक्ट)/i);
-    const projectName = hasProjectMatch ? hasProjectMatch[1] : (/(?:sportify|स्पोर्टिफाई)/i.test(lower) ? 'Sportify' : undefined);
+    if (lower.includes('google') || (lower.includes('search') && !lower.includes('search_folder'))) {
+      const queryMatch = raw.replace(/(?:search|dhoondo|karo|google|par|pe|kholo|open|website)/gi, '').trim();
+      if (queryMatch) {
+        return {
+          primaryIntent: 'BROWSER_ACTION',
+          confidence: 0.95,
+          entities: { searchQuery: queryMatch },
+          suggestedTools: [{ tool: 'search_browser', args: { query: queryMatch } }]
+        };
+      }
+      return {
+        primaryIntent: 'BROWSER_ACTION',
+        confidence: 0.95,
+        entities: { browserUrl: 'https://google.com' },
+        suggestedTools: [{ tool: 'open_browser', args: { url: 'https://google.com' } }]
+      };
+    }
 
-    // 3. Screen inspection / screenshot
+    // 4. Screen inspection / screenshot
     if (/(?:screenshot|screen\s*capture|screen\s*par|स्क्रीनशॉट|स्क्रीन\s*पर)/i.test(lower)) {
       if (/(?:error|kya hai|inspect|dekho|check|क्या\s*है|देखो)/i.test(lower)) {
         return {
@@ -151,50 +174,72 @@ export class IntentDetector {
       };
     }
 
-    // 4. Terminal Command Execution (e.g. "npm install chalao", "npm run dev", "git status", "isko run karo")
-    if (/(?:run karo|chalao|चलाओ|रन\s*करो|npm|yarn|pnpm|git\s+|python\s+)/i.test(lower) && !hasVSCode) {
-      let command = '';
-      if (lower.includes('npm run dev') || lower.includes('dev')) command = 'npm run dev';
-      else if (lower.includes('npm install') || lower.includes('npm i') || lower.includes('install')) command = 'npm install';
-      else if (lower.includes('npm start') || lower.includes('start')) command = 'npm start';
-      else if (lower.includes('npm test') || lower.includes('test')) command = 'npm test';
-      else if (lower.includes('git status')) command = 'git status';
-      else {
-        command = 'npm run dev'; // standard sensible default for web projects
+    // 5. File & Folder Operations (Create, Open, Delete)
+    if (/(?:folder|फ़ोल्डर|डायरेक्टरी|directory)/i.test(lower)) {
+      if (/(?:banao|create|make|new|नया|बनाओ)/i.test(lower)) {
+        const folderNameMatch = raw.match(/(?:naam|name)\s+["']?([a-zA-Z0-9_-]+)["']?/i) || 
+          raw.match(/(?:folder|directory)\s+["']?([a-zA-Z0-9_-]+)["']?/i) ||
+          raw.match(/(?:banao|create)\s+["']?([a-zA-Z0-9_-]+)["']?/i);
+        const folderName = (folderNameMatch && !['ek', 'banao', 'karo'].includes(folderNameMatch[1].toLowerCase())) 
+          ? folderNameMatch[1].trim() 
+          : 'NewFolder';
+        const targetPath = `${process.env.USERPROFILE || 'C:\\Users\\Default'}\\Desktop\\${folderName}`;
+        return {
+          primaryIntent: 'FILE_OPERATION',
+          confidence: 0.95,
+          entities: { folderPath: targetPath },
+          suggestedTools: [{ tool: 'create_folder', args: { path: targetPath } }]
+        };
       }
-
-      const cwd = contextTarget?.targetPath || undefined;
-
-      return {
-        primaryIntent: 'RUN_COMMAND',
-        confidence: 0.9,
-        entities: {
-          command: command || raw,
-          projectName: contextTarget?.targetName
-        },
-        suggestedTools: [
-          { tool: 'execute_command', args: { command: command || raw, cwd, runInBackground: command.includes('dev') || command.includes('start') } }
-        ]
-      };
+      if (/(?:kholo|open|खोलो)/i.test(lower)) {
+        const folderNameMatch = raw.match(/(?:folder|directory)\s+["']?([a-zA-Z0-9_\-\s]+)["']?/i);
+        const folderName = folderNameMatch ? folderNameMatch[1].trim() : 'Desktop';
+        return {
+          primaryIntent: 'OPEN_FOLDER',
+          confidence: 0.95,
+          entities: { folderPath: folderName },
+          suggestedTools: [{ tool: 'open_folder', args: { path: folderName } }]
+        };
+      }
     }
 
-    // 5. Open Terminal
-    if (/(?:terminal|टर्मिनल|कमांड\s*प्रॉम्प्ट|cmd)/i.test(lower) && /(?:kholo|open|chalao|khol\s*do|start|खोलो|ओपन|चलाओ)/i.test(lower)) {
-      const cwd = contextTarget?.targetPath || undefined;
-      return {
-        primaryIntent: 'OPEN_TERMINAL',
-        confidence: 0.95,
-        entities: {
-          folderPath: cwd,
-          projectName: contextTarget?.targetName
-        },
-        suggestedTools: [
-          { tool: 'open_terminal', args: { cwd } }
-        ]
-      };
+    if (/(?:file|फ़ाइल|फाइल|document|text file)/i.test(lower)) {
+      if (/(?:banao|create|make|write|लिखो|बनाओ)/i.test(lower)) {
+        const fileNameMatch = raw.match(/(?:naam|name)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i) || 
+          raw.match(/(?:file)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i) ||
+          raw.match(/(?:banao|create)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i);
+        const fileName = (fileNameMatch && !['ek', 'banao', 'karo'].includes(fileNameMatch[1].toLowerCase())) 
+          ? fileNameMatch[1].trim() 
+          : 'note.txt';
+        const targetPath = `${process.env.USERPROFILE || 'C:\\Users\\Default'}\\Desktop\\${fileName}`;
+        return {
+          primaryIntent: 'FILE_OPERATION',
+          confidence: 0.95,
+          entities: { filePath: targetPath },
+          suggestedTools: [{ tool: 'create_file', args: { path: targetPath, content: `Created by WAR AI on ${new Date().toLocaleString()}` } }]
+        };
+      }
+      if (/(?:delete|hatao|remove|डिलीट|हटाओ)/i.test(lower)) {
+        const fileNameMatch = raw.match(/(?:file)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i);
+        const fileName = fileNameMatch ? fileNameMatch[1].trim() : '';
+        return {
+          primaryIntent: 'FILE_OPERATION',
+          confidence: 0.95,
+          entities: { filePath: fileName },
+          suggestedTools: [{ tool: 'delete_file', args: { path: fileName } }]
+        };
+      }
     }
 
-    // 6. Project Open in VS Code (e.g. "Sportify project kholo", "VS Code mein sportify kholo")
+    // 6. VS Code & Coding Projects (Priority detection)
+    const hasVSCode = 
+      /(?:v[s|d]?[-\s]?code|visual\s*studio\s*code|\bvsc\b|\bcode\b|vdscode|वीएस\s*कोड|विजुअल\s*स्टूडियो|कोड)/i.test(lower);
+
+    const isProjectOpen = /(?:project|प्रोजेक्ट)/i.test(lower) || /(?:sportify|स्पोर्टिफाई)/i.test(lower);
+    const hasProjectMatch = isProjectOpen ? (lower.match(/([a-zA-Z0-9_-]+)\s+(?:project|वाला|प्रोजेक्ट)/i) || 
+      lower.match(/(?:project|वाला|प्रोजेक्ट)\s+([a-zA-Z0-9_-]+)/i)) : null;
+    const projectName = hasProjectMatch ? hasProjectMatch[1] : (/(?:sportify|स्पोर्टिफाई)/i.test(lower) ? 'Sportify' : undefined);
+
     if (projectName || (hasVSCode && /(?:project|प्रोजेक्ट)/i.test(lower))) {
       const pName = projectName || (hasVSCode ? 'Sportify' : 'project');
       const wantsRun = /(?:run|start|chalao|चलाओ|रन)/i.test(lower);
@@ -223,7 +268,6 @@ export class IntentDetector {
       };
     }
 
-    // 7. Direct VS Code Open / Focus / Close (e.g. "open myn vdscode", "VS code kholo", "वीएस कोड खोलो")
     if (hasVSCode) {
       if (/(?:band|close|hatao|बंद)/i.test(lower)) {
         return {
@@ -241,14 +285,22 @@ export class IntentDetector {
       };
     }
 
-    // Other applications: Chrome, Notepad, Explorer, Calculator, Spotify, Edge
+    // 6. All Known Windows Applications (Chrome, Spotify, Notepad, VLC, Calculator, etc.)
     const knownApps: Array<{ keywords: RegExp; exe: string }> = [
-      { keywords: /(?:chrome|क्रोम)/i, exe: 'chrome.exe' },
-      { keywords: /(?:notepad|नोटपैड)/i, exe: 'notepad.exe' },
+      { keywords: /(?:chrome|क्रोम|google chrome)/i, exe: 'chrome.exe' },
+      { keywords: /(?:spotify|स्पॉटिफ़ाई|gana)/i, exe: 'spotify.exe' },
+      { keywords: /(?:notepad|नोटपैड|text editor)/i, exe: 'notepad.exe' },
       { keywords: /(?:calculator|calc|कैलकुलेटर)/i, exe: 'calc.exe' },
-      { keywords: /(?:explorer|file\s*manager|फ़ाइल\s*मैनेजर)/i, exe: 'explorer.exe' },
-      { keywords: /(?:spotify|स्पॉटिफ़ाई)/i, exe: 'spotify.exe' },
+      { keywords: /(?:explorer|file\s*manager|my\s*computer|फ़ाइल\s*मैनेजर)/i, exe: 'explorer.exe' },
+      { keywords: /(?:vlc|video player)/i, exe: 'vlc.exe' },
       { keywords: /(?:edge|msedge|एज)/i, exe: 'msedge.exe' },
+      { keywords: /(?:paint|mspaint|पेंट)/i, exe: 'mspaint.exe' },
+      { keywords: /(?:word|msword)/i, exe: 'winword.exe' },
+      { keywords: /(?:excel)/i, exe: 'excel.exe' },
+      { keywords: /(?:powerpoint|ppt)/i, exe: 'powerpnt.exe' },
+      { keywords: /(?:postman)/i, exe: 'postman.exe' },
+      { keywords: /(?:telegram)/i, exe: 'telegram.exe' },
+      { keywords: /(?:whatsapp)/i, exe: 'whatsapp.exe' },
       { keywords: /(?:slack|स्लैक)/i, exe: 'slack.exe' },
       { keywords: /(?:discord|डिस्कॉर्ड)/i, exe: 'discord.exe' }
     ];
@@ -258,59 +310,165 @@ export class IntentDetector {
         if (/(?:band|close|hatao|बंद)/i.test(lower)) {
           return {
             primaryIntent: 'OPEN_APP',
-            confidence: 0.9,
+            confidence: 0.95,
             entities: { appName: app.exe },
             suggestedTools: [{ tool: 'close_application', args: { name: app.exe } }]
           };
         }
         return {
           primaryIntent: 'OPEN_APP',
-          confidence: 0.9,
+          confidence: 0.95,
           entities: { appName: app.exe },
           suggestedTools: [{ tool: 'open_application', args: { name: app.exe } }]
         };
       }
     }
 
-    // 8. Browser Search & Navigation
-    if (lower.includes('google') || lower.includes('search') || lower.includes('youtube') || lower.includes('website')) {
-      const isSearch = lower.includes('search') || lower.includes('dhoondo');
-      const queryMatch = raw.replace(/(?:search|dhoondo|karo|google|par|pe|kholo|open)/gi, '').trim();
-
-      if (isSearch && queryMatch) {
+    // 7. File & Folder Operations (Create, Open, Delete)
+    if (/(?:folder|फ़ोल्डर|डायरेक्टरी|directory)/i.test(lower)) {
+      if (/(?:banao|create|make|new|नया|बनाओ)/i.test(lower)) {
+        const folderNameMatch = raw.match(/(?:naam|name)\s+["']?([a-zA-Z0-9_\-\s]+)["']?/i) || raw.match(/(?:folder|directory)\s+["']?([a-zA-Z0-9_\-\s]+)["']?/i);
+        const folderName = folderNameMatch ? folderNameMatch[1].trim() : 'NewFolder';
+        const targetPath = `${process.env.USERPROFILE || 'C:\\Users\\Default'}\\Desktop\\${folderName}`;
         return {
-          primaryIntent: 'BROWSER_ACTION',
-          confidence: 0.88,
-          entities: { searchQuery: queryMatch },
-          suggestedTools: [{ tool: 'search_browser', args: { query: queryMatch } }]
+          primaryIntent: 'FILE_OPERATION',
+          confidence: 0.95,
+          entities: { folderPath: targetPath },
+          suggestedTools: [{ tool: 'create_folder', args: { path: targetPath } }]
         };
       }
+      if (/(?:kholo|open|खोलो)/i.test(lower)) {
+        const folderNameMatch = raw.match(/(?:folder|directory)\s+["']?([a-zA-Z0-9_\-\s]+)["']?/i);
+        const folderName = folderNameMatch ? folderNameMatch[1].trim() : 'Desktop';
+        return {
+          primaryIntent: 'OPEN_FOLDER',
+          confidence: 0.95,
+          entities: { folderPath: folderName },
+          suggestedTools: [{ tool: 'open_folder', args: { path: folderName } }]
+        };
+      }
+    }
 
-      const url = lower.includes('youtube') ? 'https://youtube.com' : 'https://google.com';
+    if (/(?:file|फ़ाइल|फाइल|document|text file)/i.test(lower)) {
+      if (/(?:banao|create|make|write|लिखो|बनाओ)/i.test(lower)) {
+        const fileNameMatch = raw.match(/(?:naam|name)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i) || raw.match(/(?:file)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i);
+        const fileName = fileNameMatch ? fileNameMatch[1].trim() : 'note.txt';
+        const targetPath = `${process.env.USERPROFILE || 'C:\\Users\\Default'}\\Desktop\\${fileName}`;
+        return {
+          primaryIntent: 'FILE_OPERATION',
+          confidence: 0.95,
+          entities: { filePath: targetPath },
+          suggestedTools: [{ tool: 'create_file', args: { path: targetPath, content: `Created by WAR AI on ${new Date().toLocaleString()}` } }]
+        };
+      }
+      if (/(?:delete|hatao|remove|डिलीट|हटाओ)/i.test(lower)) {
+        const fileNameMatch = raw.match(/(?:file)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i);
+        const fileName = fileNameMatch ? fileNameMatch[1].trim() : '';
+        return {
+          primaryIntent: 'FILE_OPERATION',
+          confidence: 0.95,
+          entities: { filePath: fileName },
+          suggestedTools: [{ tool: 'delete_file', args: { path: fileName } }]
+        };
+      }
+    }
+
+    // 8. Terminal Commands & Terminal Open
+    if (/(?:terminal|टर्मिनल|कमांड\s*प्रॉम्प्ट|cmd|powershell)/i.test(lower) && /(?:kholo|open|chalao|khol\s*do|start|खोलो|ओपन|चलाओ)/i.test(lower)) {
+      const cwd = contextTarget?.targetPath || undefined;
       return {
-        primaryIntent: 'BROWSER_ACTION',
-        confidence: 0.88,
-        entities: { browserUrl: url },
-        suggestedTools: [{ tool: 'open_browser', args: { url } }]
+        primaryIntent: 'OPEN_TERMINAL',
+        confidence: 0.95,
+        entities: {
+          folderPath: cwd,
+          projectName: contextTarget?.targetName
+        },
+        suggestedTools: [{ tool: 'open_terminal', args: { cwd } }]
       };
     }
 
-    // 9. Keyboard / Mouse commands
-    if (lower.includes('enter press') || lower.includes('press enter') || lower.includes('dabao')) {
+    if (/(?:npm\s+|yarn\s+|pnpm\s+|git\s+|python\s+|ipconfig|dir|cls|ping|curl)/i.test(lower) || (/(?:run karo|execute)/i.test(lower) && !hasVSCode)) {
+      let command = '';
+      if (lower.includes('npm run dev') || lower.includes('dev server')) command = 'npm run dev';
+      else if (lower.includes('npm install') || lower.includes('npm i')) command = 'npm install';
+      else if (lower.includes('npm start')) command = 'npm start';
+      else if (lower.includes('npm test')) command = 'npm test';
+      else if (lower.includes('git status')) command = 'git status';
+      else if (lower.includes('ipconfig')) command = 'ipconfig';
+      else {
+        command = raw;
+      }
+
+      const cwd = contextTarget?.targetPath || undefined;
+
+      return {
+        primaryIntent: 'RUN_COMMAND',
+        confidence: 0.95,
+        entities: {
+          command: command || raw,
+          projectName: contextTarget?.targetName
+        },
+        suggestedTools: [
+          { tool: 'execute_command', args: { command: command || raw, cwd, runInBackground: command.includes('dev') || command.includes('start') } }
+        ]
+      };
+    }
+
+    // 9. Keyboard Shortcuts & Typing
+    if (lower.includes('enter press') || lower.includes('press enter') || lower.includes('enter dabao')) {
       return {
         primaryIntent: 'KEYBOARD_MOUSE',
-        confidence: 0.9,
+        confidence: 0.95,
         entities: { key: 'enter' },
         suggestedTools: [{ tool: 'press_key', args: { key: 'enter' } }]
+      };
+    }
+
+    if (lower.includes('copy') || lower.includes('ctrl+c') || lower.includes('ctrl c')) {
+      return {
+        primaryIntent: 'KEYBOARD_MOUSE',
+        confidence: 0.95,
+        entities: {},
+        suggestedTools: [{ tool: 'hotkey', args: { keys: ['ctrl', 'c'] } }]
+      };
+    }
+
+    if (lower.includes('paste') || lower.includes('ctrl+v') || lower.includes('ctrl v')) {
+      return {
+        primaryIntent: 'KEYBOARD_MOUSE',
+        confidence: 0.95,
+        entities: {},
+        suggestedTools: [{ tool: 'hotkey', args: { keys: ['ctrl', 'v'] } }]
+      };
+    }
+
+    if (lower.includes('select all') || lower.includes('ctrl+a') || lower.includes('ctrl a')) {
+      return {
+        primaryIntent: 'KEYBOARD_MOUSE',
+        confidence: 0.95,
+        entities: {},
+        suggestedTools: [{ tool: 'hotkey', args: { keys: ['ctrl', 'a'] } }]
       };
     }
 
     if (lower.includes('ctrl+s') || lower.includes('save karo') || lower.includes('ctrl s')) {
       return {
         primaryIntent: 'KEYBOARD_MOUSE',
-        confidence: 0.9,
+        confidence: 0.95,
         entities: {},
         suggestedTools: [{ tool: 'hotkey', args: { keys: ['ctrl', 's'] } }]
+      };
+    }
+
+    // 10. Generic "kholo" / "open" fallback for any named application
+    const genericOpenMatch = raw.match(/(?:open|kholo|chalao|khol do|start)\s+([a-zA-Z0-9_\-\.]+)/i) || raw.match(/([a-zA-Z0-9_\-\.]+)\s+(?:open|kholo|chalao|khol do|start)/i);
+    if (genericOpenMatch && !['karo', 'kar', 'do', 'please', 'aap', 'mera', 'meri', 'kuch', 'yeh', 'woh'].includes(genericOpenMatch[1].toLowerCase())) {
+      const targetApp = genericOpenMatch[1].trim();
+      return {
+        primaryIntent: 'OPEN_APP',
+        confidence: 0.85,
+        entities: { appName: targetApp },
+        suggestedTools: [{ tool: 'open_application', args: { name: targetApp } }]
       };
     }
 
