@@ -1,5 +1,9 @@
 import fs from 'fs';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { runPowerShell, runPowerShellJson } from '../utils/powershell';
+
+const execFileAsync = promisify(execFile);
 
 export class ActionVerifier {
   public static async sleep(ms: number): Promise<void> {
@@ -12,26 +16,39 @@ export class ActionVerifier {
   ): Promise<{ verified: boolean; pid?: number; details: string }> {
     const startTime = Date.now();
     const cleanName = processName.replace(/\.exe$/i, '');
+    const exeName = `${cleanName}.exe`;
 
     while (Date.now() - startTime < maxWaitMs) {
       try {
-        const script = `Get-Process -Name "${cleanName}" -ErrorAction SilentlyContinue | Select-Object -Property Id, ProcessName, MainWindowTitle`;
-        const result = await runPowerShellJson<any>(script, 3000);
-
-        if (result) {
-          const item = Array.isArray(result) ? result[0] : result;
-          if (item && item.Id) {
-            return {
-              verified: true,
-              pid: item.Id,
-              details: `Process "${cleanName}" is running (PID: ${item.Id}, Title: "${item.MainWindowTitle || 'N/A'}")`
-            };
-          }
+        // Fast Native Tasklist check (< 50ms)
+        const { stdout } = await execFileAsync('tasklist.exe', ['/FI', `IMAGENAME eq ${exeName}`, '/FO', 'CSV', '/NH'], { timeout: 2000, windowsHide: true });
+        if (stdout && stdout.toLowerCase().includes(cleanName.toLowerCase())) {
+          const match = stdout.match(/"([^"]+)","(\d+)"/);
+          const pid = match ? parseInt(match[2], 10) : undefined;
+          return {
+            verified: true,
+            pid,
+            details: `Process "${cleanName}" is active (PID: ${pid || 'running'})`
+          };
         }
       } catch {
-        // Retry
+        // Fallback to PowerShell
       }
-      await this.sleep(400);
+
+      try {
+        const script = `Get-Process -Name "${cleanName}" -ErrorAction SilentlyContinue | Select-Object -First 1 -Property Id, ProcessName`;
+        const result = await runPowerShellJson<any>(script, 2000);
+        if (result && (result.Id || (Array.isArray(result) && result[0]?.Id))) {
+          const item = Array.isArray(result) ? result[0] : result;
+          return {
+            verified: true,
+            pid: item.Id,
+            details: `Process "${cleanName}" is active (PID: ${item.Id})`
+          };
+        }
+      } catch {}
+
+      await this.sleep(300);
     }
 
     return {
@@ -46,26 +63,24 @@ export class ActionVerifier {
   ): Promise<{ verified: boolean; details: string }> {
     const startTime = Date.now();
     const cleanName = processName.replace(/\.exe$/i, '');
+    const exeName = `${cleanName}.exe`;
 
     while (Date.now() - startTime < maxWaitMs) {
       try {
-        const script = `Get-Process -Name "${cleanName}" -ErrorAction SilentlyContinue | Measure-Object | Select-Object -ExpandProperty Count`;
-        const result = await runPowerShell(script, 3000);
-        const count = parseInt(result.stdout.trim(), 10);
-        if (isNaN(count) || count === 0) {
+        const { stdout } = await execFileAsync('tasklist.exe', ['/FI', `IMAGENAME eq ${exeName}`, '/FO', 'CSV', '/NH'], { timeout: 2000, windowsHide: true });
+        if (!stdout || !stdout.toLowerCase().includes(cleanName.toLowerCase())) {
           return {
             verified: true,
             details: `Process "${cleanName}" has successfully terminated`
           };
         }
       } catch {
-        // Process likely stopped
         return {
           verified: true,
           details: `Process "${cleanName}" has terminated`
         };
       }
-      await this.sleep(400);
+      await this.sleep(300);
     }
 
     return {

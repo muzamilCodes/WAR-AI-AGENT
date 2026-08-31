@@ -136,15 +136,17 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                   </div>
                 )}
 
-                {/* Read aloud TTS button for AI messages */}
+                {/* Read aloud Real Voice button for AI messages */}
                 {isAgent && (
-                  <div className="mt-2 flex items-center justify-end">
+                  <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                    <span className="text-[10px] text-slate-500 font-mono">Real Studio Voice</span>
                     <button
                       onClick={() => onSpeakMessage?.(msg.text)}
-                      className="p-1 rounded-md text-slate-400 hover:text-cyan-400 transition-colors"
-                      title="Speak response"
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-950/50 hover:bg-cyan-900/80 border border-cyan-500/30 text-cyan-300 hover:text-cyan-200 text-xs font-medium transition-all shadow-sm"
+                      title="Play with Real Female Voice (Swara)"
                     >
-                      <Volume2 className="w-3.5 h-3.5" />
+                      <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>🔊 Play Voice</span>
                     </button>
                   </div>
                 )}

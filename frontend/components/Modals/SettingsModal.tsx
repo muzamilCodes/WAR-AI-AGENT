@@ -11,6 +11,8 @@ interface SettingsModalProps {
   onVoiceSpeedChange: (speed: number) => void;
   wakeWordEnabled: boolean;
   onWakeWordToggle: (enabled: boolean) => void;
+  selectedVoice?: string;
+  onVoiceSelect?: (voiceId: string) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -19,11 +21,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   voiceSpeed,
   onVoiceSpeedChange,
   wakeWordEnabled,
-  onWakeWordToggle
+  onWakeWordToggle,
+  selectedVoice = 'hi-IN-MadhurNeural',
+  onVoiceSelect
 }) => {
   const [activeTab, setActiveTab] = useState<'voice' | 'security' | 'workspaces' | 'audit'>('voice');
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [savedMessage, setSavedMessage] = useState(false);
+
+  const voiceOptions = [
+    { id: 'hi-IN-MadhurNeural', label: 'WAR AI Male — Madhur (Natural Hindi / Hinglish Studio)', badge: 'Recommended' },
+    { id: 'hi-IN-SwaraNeural', label: 'WAR AI Female — Swara (Natural Hindi / Hinglish Studio)', badge: 'Natural' },
+    { id: 'en-IN-PrabhatNeural', label: 'WAR AI Male — Prabhat (Natural Indian English)', badge: 'Indian English' },
+    { id: 'en-IN-NeerjaNeural', label: 'WAR AI Female — Neerja (Natural Indian English)', badge: 'Indian English' },
+    { id: 'en-US-ChristopherNeural', label: 'WAR AI US Male — Christopher (Natural Studio)', badge: 'US English' },
+    { id: 'en-US-JennyNeural', label: 'WAR AI US Female — Jenny (Natural Studio)', badge: 'US English' },
+    { id: 'ur-PK-AsadNeural', label: 'WAR AI Urdu Male — Asad (Natural Urdu Studio)', badge: 'Urdu' },
+    { id: 'ur-PK-UzmaNeural', label: 'WAR AI Urdu Female — Uzma (Natural Urdu Studio)', badge: 'Urdu' }
+  ];
 
   useEffect(() => {
     if (isOpen && activeTab === 'audit') {
@@ -60,7 +75,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               activeTab === 'voice' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Volume2 className="w-4 h-4" /> Voice & Wake Word
+            <Volume2 className="w-4 h-4" /> Real Neural Voice & Speech
           </button>
           <button
             onClick={() => setActiveTab('security')}
@@ -92,6 +107,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="flex-1 overflow-y-auto pr-1 space-y-4">
           {activeTab === 'voice' && (
             <div className="space-y-4 text-sm">
+              {/* Studio Voice Selection */}
+              <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-slate-200">🎙️ AI Neural Voice Profile</label>
+                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-cyan-950 border border-cyan-500/40 text-cyan-300">Ultra-Realistic Neural</span>
+                </div>
+                <select
+                  value={selectedVoice}
+                  onChange={(e) => onVoiceSelect?.(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-200 text-xs focus:outline-none focus:border-cyan-500"
+                >
+                  {voiceOptions.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400">
+                  Powered by Microsoft Azure Studio Neural Audio engine for 100% human-like voice clarity.
+                </p>
+              </div>
+
               <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                 <div>
                   <p className="font-semibold text-slate-200">Wake Word Detection («Hey WAR»)</p>
@@ -121,7 +158,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-400">
-                <strong className="text-cyan-300">Supported Languages:</strong> English, Hindi, Urdu, Roman Hindi, Roman Urdu, Hinglish. Language is automatically detected without needing manual switching.
+                <strong className="text-cyan-300">Supported Languages:</strong> English, Hindi, Urdu, Roman Hindi, Roman Urdu, Hinglish. Language is automatically detected in real-time.
               </div>
             </div>
           )}

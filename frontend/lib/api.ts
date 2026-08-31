@@ -40,3 +40,19 @@ export async function fetchContextMemory() {
   const response = await fetch(`${API_BASE}/api/context`);
   return await response.json();
 }
+
+export function getTTSAudioUrl(text: string, voice?: string, lang?: string): string {
+  const params = new URLSearchParams({ text });
+  if (voice) params.append('voice', voice);
+  if (lang) params.append('lang', lang);
+  return `${API_BASE}/api/tts?${params.toString()}`;
+}
+
+export async function fetchTTSVoices() {
+  try {
+    const response = await fetch(`${API_BASE}/api/tts/voices`);
+    return await response.json();
+  } catch {
+    return { success: false, voices: [] };
+  }
+}

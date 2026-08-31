@@ -11,7 +11,7 @@ import { ConfirmationModal } from '../components/Modals/ConfirmationModal';
 import { SettingsModal } from '../components/Modals/SettingsModal';
 import { DevicePairingModal } from '../components/Device/DevicePairingModal';
 import { ChatMessage, TaskStep, ActivityEvent, DeviceInfo, ActionRequest, StepStatus } from '@war-ai/shared';
-import { sendChatMessage, confirmAction, fetchConnectedDevices } from '../lib/api';
+import { sendChatMessage, confirmAction, fetchConnectedDevices, getTTSAudioUrl } from '../lib/api';
 
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -28,13 +28,47 @@ export default function Home() {
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [pairingModalOpen, setPairingModalOpen] = useState(false);
 
-  // Voice Settings
+  // Voice Settings & Ultra-Realistic Neural Audio (Default: Swara - Natural Female Voice)
   const [isListening, setIsListening] = useState(false);
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
   const [wakeWordEnabled, setWakeWordEnabled] = useState(true);
+  const [selectedVoice, setSelectedVoice] = useState('hi-IN-SwaraNeural');
 
   const wsRef = useRef<WebSocket | null>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const isAudioUnlockedRef = useRef(false);
+
+  // Pre-unlock HTML5 audio on first user gesture
+  const unlockAudio = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    if (!audioPlayerRef.current) {
+      audioPlayerRef.current = new Audio();
+    }
+    if (!isAudioUnlockedRef.current) {
+      audioPlayerRef.current.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
+      audioPlayerRef.current.play().then(() => {
+        isAudioUnlockedRef.current = true;
+      }).catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleGesture = () => {
+      unlockAudio();
+      window.removeEventListener('click', handleGesture);
+      window.removeEventListener('keydown', handleGesture);
+      window.removeEventListener('touchstart', handleGesture);
+    };
+    window.addEventListener('click', handleGesture);
+    window.addEventListener('keydown', handleGesture);
+    window.addEventListener('touchstart', handleGesture);
+    return () => {
+      window.removeEventListener('click', handleGesture);
+      window.removeEventListener('keydown', handleGesture);
+      window.removeEventListener('touchstart', handleGesture);
+    };
+  }, [unlockAudio]);
 
   // Setup WebSocket connection to backend
   useEffect(() => {
@@ -117,11 +151,16 @@ export default function Home() {
     };
   }, []);
 
-  // Text-To-Speech function with realistic voice selection
-  const speakText = useCallback((text: string) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    const synth = window.speechSynthesis;
-    synth.cancel(); // cancel prior speech
+  // Ultra-Realistic Studio Neural Text-To-Speech function (Default: Real Female Voice)
+  const speakText = useCallback(async (text: string, lang?: string) => {
+    // 1. Cancel previous audio & browser speech
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.currentTime = 0;
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
 
     // Clean emojis & formatting for smooth speech
     const speechCleanText = text
@@ -131,59 +170,73 @@ export default function Home() {
 
     if (!speechCleanText) return;
 
-    const utterance = new SpeechSynthesisUtterance(speechCleanText);
-    utterance.rate = Math.min(Math.max(voiceSpeed, 0.8), 1.3);
-    utterance.pitch = 1.0;
-
-    const voices = synth.getVoices();
-    const isHindiText = /[\u0900-\u097F]/.test(speechCleanText) || 
-      ['kholo', 'chalao', 'karo', 'hain', 'mein', 'boss', 'bhai', 'shuru', 'batayein', 'hoon', 'kar'].some(w => speechCleanText.toLowerCase().includes(w));
-
-    let selectedVoice: SpeechSynthesisVoice | undefined;
-
-    if (isHindiText) {
-      // 1. Natural / Online Hindi voices (Edge/Chrome Microsoft Natural/Google voices)
-      selectedVoice = voices.find(v => 
-        (v.lang.toLowerCase().startsWith('hi') || v.lang.includes('hi-IN')) && 
-        (v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Google') || v.name.includes('Swara') || v.name.includes('Madhur'))
-      ) || voices.find(v => v.lang.toLowerCase().startsWith('hi') || v.lang.includes('hi-IN'));
+    if (!audioPlayerRef.current) {
+      audioPlayerRef.current = new Audio();
     }
 
-    if (!selectedVoice) {
-      // 2. High-quality Indian English or British/US Natural voices
-      selectedVoice = voices.find(v => 
-        (v.lang.includes('en-IN') || v.lang.includes('en-GB') || v.lang.includes('en-US')) && 
-        (v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Neural') || v.name.includes('Neerja') || v.name.includes('Google'))
-      ) || voices.find(v => v.lang.includes('en-IN')) || voices.find(v => v.lang.includes('en-GB')) || voices.find(v => v.lang.startsWith('en'));
-    }
+    const audio = audioPlayerRef.current;
+    const voiceToUse = selectedVoice || 'hi-IN-SwaraNeural';
+    const audioUrl = getTTSAudioUrl(speechCleanText, voiceToUse, lang);
 
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-    }
+    setAgentState('speaking');
+    audio.src = audioUrl;
+    audio.playbackRate = Math.min(Math.max(voiceSpeed, 0.8), 1.5);
 
-    utterance.onstart = () => setAgentState('speaking');
-    utterance.onend = () => {
+    audio.onplay = () => setAgentState('speaking');
+    audio.onended = () => {
       setAgentState('idle');
     };
-    utterance.onerror = () => {
-      setAgentState('idle');
+    audio.onerror = (e) => {
+      console.warn('[Neural TTS] Audio error, trying fallback:', e);
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        const utterance = new SpeechSynthesisUtterance(speechCleanText);
+        utterance.rate = voiceSpeed;
+        utterance.onstart = () => setAgentState('speaking');
+        utterance.onend = () => setAgentState('idle');
+        utterance.onerror = () => setAgentState('idle');
+        window.speechSynthesis.speak(utterance);
+      } else {
+        setAgentState('idle');
+      }
     };
 
-    synth.speak(utterance);
-  }, [voiceSpeed]);
+    try {
+      await audio.play();
+    } catch {
+      // Autoplay blocked -> fallback to speech synthesis
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        const utterance = new SpeechSynthesisUtterance(speechCleanText);
+        utterance.rate = voiceSpeed;
+        utterance.onstart = () => setAgentState('speaking');
+        utterance.onend = () => setAgentState('idle');
+        utterance.onerror = () => setAgentState('idle');
+        window.speechSynthesis.speak(utterance);
+      } else {
+        setAgentState('idle');
+      }
+    }
+  }, [selectedVoice, voiceSpeed]);
 
   // Voice Interruption: "Ruko", "Stop", "Bas", "Cancel"
   const handleVoiceInterruption = useCallback(() => {
-    if (synthRef.current) {
-      synthRef.current.cancel();
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
     }
     setAgentState('listening');
   }, []);
 
   // Stop button clicked
   const handleStop = useCallback(() => {
-    if (synthRef.current) {
-      synthRef.current.cancel();
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
     }
     setIsListening(false);
     setAgentState('idle');
@@ -277,12 +330,13 @@ export default function Home() {
         wakeWordEnabled={wakeWordEnabled}
       />
 
-      {/* Header */}
+      {/* Top Header */}
       <Header
         device={activeDevice}
         onOpenSettings={() => setSettingsModalOpen(true)}
         onOpenPairing={() => setPairingModalOpen(true)}
-        activeTaskCount={currentSteps.filter(s => s.status === 'running').length}
+        activeTaskCount={currentSteps.filter(s => s.status === 'running' || s.status === 'pending').length}
+        onTestVoice={() => speakText("नमस्ते! मैं WAR AI आपकी पर्सनल असिस्टेंट हूँ। बताइए आज मैं आपकी क्या मदद करूँ?")}
       />
 
       {/* Main Split Layout */}
@@ -342,6 +396,8 @@ export default function Home() {
         onVoiceSpeedChange={setVoiceSpeed}
         wakeWordEnabled={wakeWordEnabled}
         onWakeWordToggle={setWakeWordEnabled}
+        selectedVoice={selectedVoice}
+        onVoiceSelect={setSelectedVoice}
       />
 
       {/* Remote Device Pairing Modal */}

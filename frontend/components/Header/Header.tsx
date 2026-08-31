@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Bot, Shield, Laptop, Settings, QrCode, Wifi, WifiOff } from 'lucide-react';
+import { Bot, Shield, Laptop, Settings, QrCode, Wifi, WifiOff, Volume2 } from 'lucide-react';
 import { DeviceInfo } from '@war-ai/shared';
 
 interface HeaderProps {
@@ -9,6 +9,7 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onOpenPairing: () => void;
   activeTaskCount: number;
+  onTestVoice?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   onOpenPairing,
   activeTaskCount,
+  onTestVoice
 }) => {
   const isOnline = !!device?.isOnline;
 
@@ -54,6 +56,18 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right Controls: Device Status & Modals */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {/* Test Female Voice Button */}
+        {onTestVoice && (
+          <button
+            onClick={onTestVoice}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 text-cyan-300 text-xs font-semibold transition-all shadow-sm"
+            title="Click to test Real Female Voice"
+          >
+            <Volume2 className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+            <span className="hidden sm:inline">Test Voice (Swara)</span>
+          </button>
+        )}
+
         {/* Device Pill */}
         <button
           onClick={onOpenPairing}
