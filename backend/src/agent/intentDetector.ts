@@ -125,15 +125,20 @@ export class IntentDetector {
     }
 
     // 3. YouTube & Web / Browser Search (Priority over terminal "chalao")
-    if (lower.includes('youtube') || lower.includes('यूट्यूब')) {
-      const searchMatch = raw.replace(/(?:youtube|यूट्यूब|kholo|open|par|pe|chalao|play|search|gana|song|dekho|video)/gi, '').trim();
-      const url = searchMatch 
+    if (lower.includes('youtube') || lower.includes('यूट्यूब') || lower.includes('युट्यूब')) {
+      const searchMatch = raw
+        .replace(/(?:youtube|यूट्यूब|युट्यूब|chrome|क्रोम|क्रो|browser|ब्राउज़र|mein|में|pe|par|पर|kholo|open|chalao|play|search|karo|करो|ओपन|खोलो|dekho|video|song|gana)/gi, '')
+        .replace(/[।.,!?]+/g, '')
+        .trim();
+
+      const url = (searchMatch && searchMatch.length > 2)
         ? `https://www.youtube.com/results?search_query=${encodeURIComponent(searchMatch)}`
-        : 'https://youtube.com';
+        : 'https://www.youtube.com';
+
       return {
         primaryIntent: 'BROWSER_ACTION',
         confidence: 0.98,
-        entities: { browserUrl: url, searchQuery: searchMatch },
+        entities: { browserUrl: url, searchQuery: searchMatch, appName: 'YouTube' },
         suggestedTools: [{ tool: 'open_browser', args: { url } }]
       };
     }

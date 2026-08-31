@@ -151,69 +151,59 @@ export default function Home() {
     };
   }, []);
 
-  // Ultra-Realistic Studio Neural Text-To-Speech function (Default: Real Female Voice)
+  // Ultra-Realistic Studio Neural Text-To-Speech function (Default: Real Female Voice - Swara)
   const speakText = useCallback(async (text: string, lang?: string) => {
     // 1. Cancel previous audio & browser speech
     if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
-      audioPlayerRef.current.currentTime = 0;
+      try {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.src = '';
+      } catch {}
+      audioPlayerRef.current = null;
     }
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
 
-    // Clean emojis & formatting for smooth speech
+    // Clean emojis, URLs & formatting for smooth natural human speech
     const speechCleanText = text
       .replace(/[😎✅🚀🛑💻📂🔍⚙️🤖«»*#_`]/g, '')
+      .replace(/https?:\/\/\S+/g, '')
+      .replace(/%[0-9a-fA-F]{2}/g, '')
       .replace(/[\n\r]+/g, ' ')
       .trim();
 
     if (!speechCleanText) return;
 
-    if (!audioPlayerRef.current) {
-      audioPlayerRef.current = new Audio();
-    }
-
-    const audio = audioPlayerRef.current;
     const voiceToUse = selectedVoice || 'hi-IN-SwaraNeural';
     const audioUrl = getTTSAudioUrl(speechCleanText, voiceToUse, lang);
 
-    setAgentState('speaking');
-    audio.src = audioUrl;
-    audio.playbackRate = Math.min(Math.max(voiceSpeed, 0.8), 1.5);
-
-    audio.onplay = () => setAgentState('speaking');
-    audio.onended = () => {
-      setAgentState(isListening ? 'listening' : 'idle');
-    };
-    audio.onerror = (e) => {
-      console.warn('[Neural TTS] Audio error, trying fallback:', e);
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        const utterance = new SpeechSynthesisUtterance(speechCleanText);
-        utterance.rate = voiceSpeed;
-        utterance.onstart = () => setAgentState('speaking');
-        utterance.onend = () => setAgentState(isListening ? 'listening' : 'idle');
-        utterance.onerror = () => setAgentState(isListening ? 'listening' : 'idle');
-        window.speechSynthesis.speak(utterance);
-      } else {
-        setAgentState(isListening ? 'listening' : 'idle');
-      }
-    };
-
     try {
-      await audio.play();
-    } catch {
-      // Autoplay blocked -> fallback to speech synthesis
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        const utterance = new SpeechSynthesisUtterance(speechCleanText);
-        utterance.rate = voiceSpeed;
-        utterance.onstart = () => setAgentState('speaking');
-        utterance.onend = () => setAgentState(isListening ? 'listening' : 'idle');
-        utterance.onerror = () => setAgentState(isListening ? 'listening' : 'idle');
-        window.speechSynthesis.speak(utterance);
-      } else {
+      // 2. Fetch direct 24kHz Studio Neural MP3 blob
+      const res = await fetch(audioUrl);
+      if (!res.ok) throw new Error(`TTS server returned ${res.status}`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+
+      const audio = new Audio(objectUrl);
+      audioPlayerRef.current = audio;
+      audio.playbackRate = Math.min(Math.max(voiceSpeed, 0.8), 1.5);
+
+      audio.onplay = () => setAgentState('speaking');
+      audio.onended = () => {
+        URL.revokeObjectURL(objectUrl);
         setAgentState(isListening ? 'listening' : 'idle');
-      }
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        setAgentState(isListening ? 'listening' : 'idle');
+      };
+
+      setAgentState('speaking');
+      await audio.play();
+    } catch (err) {
+      console.warn('[Neural TTS] Audio error:', err);
+      setAgentState(isListening ? 'listening' : 'idle');
     }
   }, [selectedVoice, voiceSpeed, isListening]);
 

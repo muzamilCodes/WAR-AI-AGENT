@@ -81,25 +81,46 @@ export class MultilingualEngine {
   ): string {
     const isDesi = ['hindi', 'urdu', 'roman_hindi', 'roman_urdu', 'hinglish'].includes(lang);
 
+    // Clean target name from technical prefix or raw URLs
+    let cleanTarget = (context.targetName || context.actionName || 'Task')
+      .replace(/^open browser:\s*/i, '')
+      .replace(/^https?:\/\/\S+/i, 'Browser')
+      .replace(/%[0-9a-fA-F]{2}/g, '')
+      .replace(/_/g, ' ')
+      .trim();
+
+    if (!cleanTarget || cleanTarget.toLowerCase().includes('http')) {
+      cleanTarget = 'Task';
+    }
+
     switch (intent) {
       case 'acknowledge':
         if (isDesi) {
-          return `Bilkul boss 😎, ${context.targetName || context.actionName || 'task'} start kar raha hoon...`;
+          return `Ji boss! Main ${cleanTarget} shuru kar rahi hoon...`;
         }
-        return `Sure thing! Starting ${context.targetName || context.actionName || 'your request'} right away...`;
+        return `Sure thing! Starting ${cleanTarget} right away...`;
 
       case 'completed':
         if (isDesi) {
-          return `Done boss ✅ ${context.targetName || context.actionName || 'Task'} successfully complete ho gaya.`;
+          if (cleanTarget.toLowerCase().includes('lock')) {
+            return `Ji boss! Aapka laptop lock kar diya gaya hai.`;
+          }
+          if (cleanTarget.toLowerCase().includes('youtube')) {
+            return `Ji boss! YouTube open kar diya gaya hai.`;
+          }
+          if (cleanTarget.toLowerCase().includes('browser') || cleanTarget.toLowerCase().includes('chrome')) {
+            return `Ji boss! Browser successfully open ho gaya hai.`;
+          }
+          return `Done boss! ${cleanTarget} successfully complete ho gaya hai.`;
         }
-        return `All set! ✅ Successfully completed ${context.targetName || context.actionName || 'the task'}.`;
+        return `All set! ✅ Successfully completed ${cleanTarget}.`;
 
       case 'clarify':
         if (isDesi) {
           if (context.options && context.options.length > 0) {
             return `Boss, mujhe ${context.options.length} matches mile hain. Kaunsa open karun?`;
           }
-          return `Sure boss 😎. Kaunsa project ya file open karna hai?`;
+          return `Ji boss, batayein kaunsa project ya app open karna hai?`;
         }
         if (context.options && context.options.length > 0) {
           return `I found ${context.options.length} matches. Which one would you like to open?`;
@@ -108,18 +129,18 @@ export class MultilingualEngine {
 
       case 'error':
         if (isDesi) {
-          return `Boss, issue aa gaya: ${context.details || 'Action perform nahi ho paya'}. Kya main retry karun?`;
+          return `Boss, issue aa gaya: ${context.details || 'Action perform nahi ho paya'}. Kya main dobara try karun?`;
         }
         return `Encountered an issue: ${context.details || 'Could not complete action'}. Would you like me to retry?`;
 
       case 'stopped':
         if (isDesi) {
-          return `Theek hai boss 🛑 Task cancel kar diya. Agla command batao.`;
+          return `Theek hai boss, main ruk gayi hoon. Agla command bataiye.`;
         }
         return `Understood 🛑 Operation cancelled. Ready for your next command.`;
 
       default:
-        return isDesi ? 'Ji boss, batayein.' : 'How can I help you today?';
+        return isDesi ? 'Ji boss, batayein, main sun rahi hoon.' : 'How can I help you today?';
     }
   }
 }
