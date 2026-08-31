@@ -20,25 +20,41 @@ export const VoiceController: React.FC<VoiceControllerProps> = ({
   wakeWordEnabled
 }) => {
   const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef<boolean>(isListening);
   const isSpeakingRef = useRef<boolean>(isSpeaking);
+  const onTranscriptRef = useRef(onTranscript);
+  const onInterruptionRef = useRef(onInterruption);
+  const onListeningChangeRef = useRef(onListeningChange);
+  const wakeWordEnabledRef = useRef(wakeWordEnabled);
   const cooldownUntilRef = useRef<number>(0);
+  const restartTimerRef = useRef<any>(null);
+  const isStartingRef = useRef<boolean>(false);
 
-  // Keep ref up to date
+  // Sync refs to avoid re-triggering speech engine effects
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
+
+  useEffect(() => {
+    onTranscriptRef.current = onTranscript;
+    onInterruptionRef.current = onInterruption;
+    onListeningChangeRef.current = onListeningChange;
+    wakeWordEnabledRef.current = wakeWordEnabled;
+  }, [onTranscript, onInterruption, onListeningChange, wakeWordEnabled]);
+
   useEffect(() => {
     isSpeakingRef.current = isSpeaking;
     if (isSpeaking) {
-      // While speaking, don't allow ambient voice input
-      cooldownUntilRef.current = Date.now() + 800;
+      cooldownUntilRef.current = Date.now() + 600;
     } else {
-      // Cooldown for 800ms after speaking stops to avoid echo
-      cooldownUntilRef.current = Date.now() + 800;
+      cooldownUntilRef.current = Date.now() + 600;
     }
   }, [isSpeaking]);
 
+  // Main SpeechRecognition Lifecycle (runs once on mount)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Check browser Web Speech API
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       console.warn('[VoiceController] Web Speech API not supported in this browser.');
@@ -48,82 +64,121 @@ export const VoiceController: React.FC<VoiceControllerProps> = ({
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'hi-IN'; // supports Hindi & English/Hinglish mixed
+    recognition.lang = 'hi-IN'; // Multi-lingual recognition for Hindi, Urdu & English/Hinglish
+    recognition.maxAlternatives = 1;
+
+    const safeStart = () => {
+      if (!isListeningRef.current || isStartingRef.current) return;
+      try {
+        isStartingRef.current = true;
+        recognition.start();
+      } catch (err: any) {
+        isStartingRef.current = false;
+        // Already started or busy, retry after delay
+        if (err.name !== 'InvalidStateError') {
+          console.warn('[VoiceController] Start error:', err);
+        }
+      }
+    };
+
+    recognition.onstart = () => {
+      isStartingRef.current = false;
+    };
 
     recognition.onresult = (event: any) => {
       let finalTranscript = '';
+
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         const item = event.results[i];
-        const transcript = item[0].transcript.trim();
+        const transcript = item[0]?.transcript?.trim() || '';
 
-        // Check for interruption command in realtime even while speaking
+        // Check for interruption command in realtime even while AI is speaking
         const lower = transcript.toLowerCase();
-        if (['ruko', 'stop', 'bas', 'cancel', 'rok do', 'chup'].some(k => lower.includes(k))) {
-          onInterruption();
+        if (['ruko', 'stop', 'bas', 'cancel', 'rok do', 'chup', 'pause'].some(k => lower.includes(k))) {
+          onInterruptionRef.current();
           if (item.isFinal) {
-            onTranscript(transcript);
+            onTranscriptRef.current(transcript);
           }
           return;
         }
 
-        // If the AI is currently speaking through the speakers, or in post-speech cooldown, IGNORE speaker echo
+        // Suppress transcript while AI is speaking through speakers
         if (isSpeakingRef.current || Date.now() < cooldownUntilRef.current) {
           continue;
         }
 
         if (item.isFinal) {
-          finalTranscript += transcript;
+          finalTranscript += ' ' + transcript;
         }
       }
 
+      finalTranscript = finalTranscript.trim();
+
       if (finalTranscript && !isSpeakingRef.current && Date.now() >= cooldownUntilRef.current) {
-        // Check for wake word if enabled
-        if (wakeWordEnabled && finalTranscript.toLowerCase().includes('hey war')) {
-          const stripped = finalTranscript.replace(/hey war/gi, '').trim();
-          if (stripped) {
-            onTranscript(stripped);
+        // If Wake Word is enabled
+        if (wakeWordEnabledRef.current) {
+          if (finalTranscript.toLowerCase().includes('hey war') || finalTranscript.toLowerCase().includes('war')) {
+            const stripped = finalTranscript.replace(/hey war/gi, '').replace(/^war\s*/gi, '').trim();
+            if (stripped) {
+              onTranscriptRef.current(stripped);
+            }
           }
         } else {
-          onTranscript(finalTranscript);
+          // Direct Voice Mode: pass all speech
+          onTranscriptRef.current(finalTranscript);
         }
       }
     };
 
     recognition.onerror = (event: any) => {
-      if (event.error !== 'no-speech' && event.error !== 'aborted') {
-        console.warn('[VoiceController] Speech recognition:', event.error);
-        if (event.error === 'not-allowed') {
-          onListeningChange(false);
-        }
+      isStartingRef.current = false;
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        console.warn('[VoiceController] Microphone permission denied.');
+        onListeningChangeRef.current(false);
+        return;
       }
+      // Recoverable errors (no-speech, network, aborted) -> will auto-restart in onend
     };
 
     recognition.onend = () => {
-      if (isListening) {
-        try {
-          recognition.start();
-        } catch {}
+      isStartingRef.current = false;
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+
+      // Auto-restart loop if user still wants to listen
+      if (isListeningRef.current) {
+        restartTimerRef.current = setTimeout(() => {
+          if (isListeningRef.current) {
+            safeStart();
+          }
+        }, 150);
       }
     };
 
     recognitionRef.current = recognition;
 
     return () => {
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
       try {
         recognition.stop();
       } catch {}
     };
-  }, [onTranscript, onInterruption, wakeWordEnabled, isListening, onListeningChange]);
+  }, []);
 
+  // Handle User Mic Toggle
   useEffect(() => {
     const recognition = recognitionRef.current;
     if (!recognition) return;
 
     if (isListening) {
       try {
+        isStartingRef.current = true;
         recognition.start();
-      } catch {}
+      } catch (err: any) {
+        isStartingRef.current = false;
+        // Ignore if already started
+      }
     } else {
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
       try {
         recognition.stop();
       } catch {}

@@ -31,7 +31,7 @@ export default function Home() {
   // Voice Settings & Ultra-Realistic Neural Audio (Default: Swara - Natural Female Voice)
   const [isListening, setIsListening] = useState(false);
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
-  const [wakeWordEnabled, setWakeWordEnabled] = useState(true);
+  const [wakeWordEnabled, setWakeWordEnabled] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState('hi-IN-SwaraNeural');
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -184,7 +184,7 @@ export default function Home() {
 
     audio.onplay = () => setAgentState('speaking');
     audio.onended = () => {
-      setAgentState('idle');
+      setAgentState(isListening ? 'listening' : 'idle');
     };
     audio.onerror = (e) => {
       console.warn('[Neural TTS] Audio error, trying fallback:', e);
@@ -192,11 +192,11 @@ export default function Home() {
         const utterance = new SpeechSynthesisUtterance(speechCleanText);
         utterance.rate = voiceSpeed;
         utterance.onstart = () => setAgentState('speaking');
-        utterance.onend = () => setAgentState('idle');
-        utterance.onerror = () => setAgentState('idle');
+        utterance.onend = () => setAgentState(isListening ? 'listening' : 'idle');
+        utterance.onerror = () => setAgentState(isListening ? 'listening' : 'idle');
         window.speechSynthesis.speak(utterance);
       } else {
-        setAgentState('idle');
+        setAgentState(isListening ? 'listening' : 'idle');
       }
     };
 
@@ -208,14 +208,14 @@ export default function Home() {
         const utterance = new SpeechSynthesisUtterance(speechCleanText);
         utterance.rate = voiceSpeed;
         utterance.onstart = () => setAgentState('speaking');
-        utterance.onend = () => setAgentState('idle');
-        utterance.onerror = () => setAgentState('idle');
+        utterance.onend = () => setAgentState(isListening ? 'listening' : 'idle');
+        utterance.onerror = () => setAgentState(isListening ? 'listening' : 'idle');
         window.speechSynthesis.speak(utterance);
       } else {
-        setAgentState('idle');
+        setAgentState(isListening ? 'listening' : 'idle');
       }
     }
-  }, [selectedVoice, voiceSpeed]);
+  }, [selectedVoice, voiceSpeed, isListening]);
 
   // Voice Interruption: "Ruko", "Stop", "Bas", "Cancel"
   const handleVoiceInterruption = useCallback(() => {
