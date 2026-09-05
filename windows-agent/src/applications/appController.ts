@@ -31,8 +31,28 @@ export class AppController {
       return 'calc.exe';
     }
 
-    if (lower.includes('paint') || lower.includes('पेंट')) {
-      return 'mspaint.exe';
+    if (lower.includes('chrome') || lower.includes('क्रोम')) {
+      return 'chrome.exe';
+    }
+
+    if (lower.includes('edge') || lower.includes('एज')) {
+      return 'msedge.exe';
+    }
+
+    if (lower.includes('brave') || lower.includes('ब्रेव')) {
+      return 'brave.exe';
+    }
+
+    if (lower.includes('explorer') || lower.includes('file manager') || lower.includes('files')) {
+      return 'explorer.exe';
+    }
+
+    if (lower.includes('terminal') || lower.includes('powershell')) {
+      return 'wt.exe';
+    }
+
+    if (lower.includes('cmd') || lower.includes('command prompt')) {
+      return 'cmd.exe';
     }
 
     return name;
@@ -58,19 +78,32 @@ export class AppController {
       };
     }
 
-    // Try starting resolved path
+    // Try starting resolved path safely without blocking GUI dialogs
     const script = `
       try {
         Start-Process -FilePath "${resolvedPath}" ${argString ? `-ArgumentList ${argString}` : ''} -ErrorAction Stop
       } catch {
         try {
-          Start-Process "cmd.exe" -ArgumentList "/c start \"\" \"${name}\"" -WindowStyle Hidden
+          Start-Process -FilePath "${name}" ${argString ? `-ArgumentList ${argString}` : ''} -ErrorAction Stop
         } catch {
-          Start-Process "${name}"
+          $msg = $_.Exception.Message
+          Write-Error "Failed to start ${name}: $msg"
         }
       }
     `;
-    await runPowerShell(script, 8000);
+    const res = await runPowerShell(script, 8000);
+
+    if (res.code !== 0 && res.stderr && !res.stdout) {
+      return {
+        id: `open_app_${Date.now()}`,
+        tool: 'open_application',
+        success: false,
+        message: `Application "${name}" could not be found or started.`,
+        error: res.stderr,
+        verified: false,
+        executionTimeMs: Date.now() - startTime
+      };
+    }
 
     return {
       id: `open_app_${Date.now()}`,

@@ -469,18 +469,21 @@ export class IntentDetector {
     }
 
     // 10. Generic "kholo" / "open" fallback for ANY named application or target (Unicode & Devanagari supported)
-    const cleanGeneric = raw
-      .replace(/(?:open|kholo|chalao|khol do|start|karo|kar do|kar|batao|bataiye|please|kripya|खोलो|ओपन|चलाओ|करो|कर\s*दो|शुरू|में|par|pe|mein)/gi, '')
-      .replace(/[।.,!?]+/g, '')
-      .trim();
+    const hasOpenKeyword = /(?:open|kholo|chalao|khol\s*do|start|launch|run|खोलो|ओपन|चलाओ|शुरू|खोल)/i.test(raw);
+    if (hasOpenKeyword) {
+      const cleanGeneric = raw
+        .replace(/(?:open|kholo|chalao|khol\s*do|start|launch|run|karo|kar\s*do|kar|batao|bataiye|please|kripya|खोलो|ओपन|चलाओ|करो|कर\s*दो|शुरू|में|par|pe|mein)/gi, '')
+        .replace(/[।.,!?]+/g, '')
+        .trim();
 
-    if (cleanGeneric && cleanGeneric.length >= 2 && !['kuch', 'yeh', 'woh', 'sab', 'aap', 'mera', 'meri', 'kya', 'hai', 'hain', 'karo'].includes(cleanGeneric.toLowerCase())) {
-      return {
-        primaryIntent: 'OPEN_APP',
-        confidence: 0.9,
-        entities: { appName: cleanGeneric },
-        suggestedTools: [{ tool: 'open_application', args: { name: cleanGeneric } }]
-      };
+      if (cleanGeneric && cleanGeneric.length >= 2 && !['kuch', 'yeh', 'woh', 'sab', 'aap', 'mera', 'meri', 'kya', 'hai', 'hain', 'karo', 'ho', 'gaya'].includes(cleanGeneric.toLowerCase())) {
+        return {
+          primaryIntent: 'OPEN_APP',
+          confidence: 0.85,
+          entities: { appName: cleanGeneric },
+          suggestedTools: [{ tool: 'open_application', args: { name: cleanGeneric } }]
+        };
+      }
     }
 
     // Default: Conversational chat
