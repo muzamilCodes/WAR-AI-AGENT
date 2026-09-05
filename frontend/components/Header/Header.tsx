@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Bot, Shield, Laptop, Settings, QrCode, Wifi, WifiOff, Volume2 } from 'lucide-react';
+import { Bot, Shield, Laptop, Settings, QrCode, Wifi, WifiOff, Volume2, Languages } from 'lucide-react';
 import { DeviceInfo } from '@war-ai/shared';
 
 interface HeaderProps {
@@ -10,6 +10,8 @@ interface HeaderProps {
   onOpenPairing: () => void;
   activeTaskCount: number;
   onTestVoice?: () => void;
+  language?: string;
+  onLanguageChange?: (lang: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,7 +19,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   onOpenPairing,
   activeTaskCount,
-  onTestVoice
+  onTestVoice,
+  language = 'en-IN',
+  onLanguageChange
 }) => {
   const isOnline = !!device?.isOnline;
 
@@ -56,15 +60,33 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right Controls: Device Status & Modals */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {/* Language Selector */}
+        {onLanguageChange && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-slate-700/80 text-xs text-slate-200 shadow-sm">
+            <Languages className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <select
+              value={language}
+              onChange={(e) => onLanguageChange(e.target.value)}
+              className="bg-transparent text-xs text-slate-200 font-medium focus:outline-none cursor-pointer pr-1"
+              title="Change Voice Recognition & Response Language"
+            >
+              <option value="en-IN" className="bg-slate-900 text-slate-100">🌐 Roman Urdu / Hinglish</option>
+              <option value="en-US" className="bg-slate-900 text-slate-100">🇬🇧 English</option>
+              <option value="hi-IN" className="bg-slate-900 text-slate-100">🇮🇳 हिंदी (Hindi)</option>
+              <option value="ur-PK" className="bg-slate-900 text-slate-100">🇵🇰 اردو (Urdu)</option>
+            </select>
+          </div>
+        )}
+
         {/* Test Female Voice Button */}
         {onTestVoice && (
           <button
             onClick={onTestVoice}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 text-cyan-300 text-xs font-semibold transition-all shadow-sm"
+            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 text-cyan-300 text-xs font-semibold transition-all shadow-sm"
             title="Click to test Real Female Voice"
           >
             <Volume2 className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-            <span className="hidden sm:inline">Test Voice (Swara)</span>
+            <span className="hidden sm:inline">Test Voice</span>
           </button>
         )}
 

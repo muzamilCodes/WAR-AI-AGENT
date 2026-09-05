@@ -28,11 +28,12 @@ export default function Home() {
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [pairingModalOpen, setPairingModalOpen] = useState(false);
 
-  // Voice Settings & Ultra-Realistic Neural Audio (Default: Swara - Natural Female Voice)
+  // Voice Settings & Ultra-Realistic Neural Audio
   const [isListening, setIsListening] = useState(false);
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
   const [wakeWordEnabled, setWakeWordEnabled] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState('hi-IN-SwaraNeural');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('en-IN');
 
   const wsRef = useRef<WebSocket | null>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
@@ -248,7 +249,8 @@ export default function Home() {
     setAgentState('thinking');
 
     try {
-      const response = await sendChatMessage(text, isVoice);
+      const backendLang = selectedLanguage === 'en-IN' ? 'roman_urdu' : selectedLanguage === 'hi-IN' ? 'hindi' : selectedLanguage === 'ur-PK' ? 'urdu' : 'english';
+      const response = await sendChatMessage(text, isVoice, backendLang);
       if (response && response.message) {
         setMessages(prev => [...prev, response.message]);
 
@@ -318,6 +320,7 @@ export default function Home() {
         }}
         onInterruption={handleVoiceInterruption}
         wakeWordEnabled={wakeWordEnabled}
+        language={selectedLanguage}
       />
 
       {/* Top Header */}
@@ -326,7 +329,9 @@ export default function Home() {
         onOpenSettings={() => setSettingsModalOpen(true)}
         onOpenPairing={() => setPairingModalOpen(true)}
         activeTaskCount={currentSteps.filter(s => s.status === 'running' || s.status === 'pending').length}
-        onTestVoice={() => speakText("नमस्ते! मैं WAR AI आपकी पर्सनल असिस्टेंट हूँ। बताइए आज मैं आपकी क्या मदद करूँ?")}
+        language={selectedLanguage}
+        onLanguageChange={setSelectedLanguage}
+        onTestVoice={() => speakText("Hey boss, WAR AI active hai. Batayein main aapki kya madad kar sakti hoon?")}
       />
 
       {/* Main Split Layout */}

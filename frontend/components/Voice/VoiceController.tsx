@@ -9,6 +9,7 @@ interface VoiceControllerProps {
   onTranscript: (text: string) => void;
   onInterruption: () => void;
   wakeWordEnabled: boolean;
+  language?: string;
 }
 
 export const VoiceController: React.FC<VoiceControllerProps> = ({
@@ -17,7 +18,8 @@ export const VoiceController: React.FC<VoiceControllerProps> = ({
   onListeningChange,
   onTranscript,
   onInterruption,
-  wakeWordEnabled
+  wakeWordEnabled,
+  language = 'en-IN'
 }) => {
   const recognitionRef = useRef<any>(null);
   const isListeningRef = useRef<boolean>(isListening);
@@ -64,7 +66,7 @@ export const VoiceController: React.FC<VoiceControllerProps> = ({
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'hi-IN'; // Multi-lingual recognition for Hindi, Urdu & English/Hinglish
+    recognition.lang = language || 'en-IN'; // en-IN for Roman Urdu / Hinglish & English in Latin script
     recognition.maxAlternatives = 1;
 
     const safeStart = () => {
@@ -162,7 +164,7 @@ export const VoiceController: React.FC<VoiceControllerProps> = ({
         recognition.stop();
       } catch {}
     };
-  }, []);
+  }, [language]);
 
   // Handle User Mic Toggle
   useEffect(() => {
