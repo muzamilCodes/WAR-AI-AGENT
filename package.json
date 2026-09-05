@@ -16,6 +16,7 @@
     "dev:agent": "npm run dev --workspace=windows-agent",
     "dev:frontend": "npm run dev --workspace=frontend",
     "build": "npm run build --workspace=shared && npm run build --workspace=backend && npm run build --workspace=windows-agent && npm run build --workspace=frontend",
+    "build:backend": "npm run build --workspace=shared && npm run build --workspace=backend",
     "test": "npm run test --workspace=backend && npm run test --workspace=windows-agent",
     "start:agent": "npm run start --workspace=windows-agent",
     "start:backend": "npm run start --workspace=backend"
