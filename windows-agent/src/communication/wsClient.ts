@@ -45,16 +45,27 @@ export class AgentWSClient {
     }
   }
 
+  private missedPings: number = 0;
+
   private startHeartbeat() {
     this.stopHeartbeat();
+    this.missedPings = 0;
+
     this.heartbeatTimer = setInterval(() => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.send({ type: 'ping', timestamp: Date.now() });
-      } else {
-        this.stopHeartbeat();
-        if (this.isRunning) this.scheduleReconnect();
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        this.scheduleReconnect();
+        return;
       }
-    }, 10000); // Heartbeat every 10 seconds to keep Render proxy alive
+
+      this.missedPings++;
+      if (this.missedPings > 3) {
+        console.warn('[WAR Windows Agent] Heartbeat timeout (3 missed pings). Reconnecting...');
+        this.scheduleReconnect();
+        return;
+      }
+
+      this.send({ type: 'ping', timestamp: Date.now() });
+    }, 15000); // Heartbeat ping every 15s to keep cloud proxy connection active
   }
 
   private stopHeartbeat() {
@@ -100,6 +111,7 @@ export class AgentWSClient {
       });
 
       this.ws.on('message', async (data: string) => {
+        this.missedPings = 0;
         try {
           const payload = JSON.parse(data.toString());
           if (payload.type === 'execute_tool') {
@@ -107,11 +119,15 @@ export class AgentWSClient {
           } else if (payload.type === 'ping') {
             this.send({ type: 'pong', timestamp: Date.now() });
           } else if (payload.type === 'pong') {
-            // Heartbeat confirmed
+            this.missedPings = 0;
           }
         } catch (err: any) {
           console.error('[WAR Windows Agent] Error handling message:', err.message);
         }
+      });
+
+      this.ws.on('pong', () => {
+        this.missedPings = 0;
       });
 
       this.ws.on('close', () => {
