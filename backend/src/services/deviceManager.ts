@@ -25,6 +25,15 @@ export class DeviceManager {
 
   public registerAgent(socket: WebSocket, info: DeviceInfo): string {
     const connectionId = info.id || `dev_${Date.now()}`;
+    
+    // Clean up previous socket if existing
+    const existing = this.agents.get(connectionId);
+    if (existing && existing.socket !== socket) {
+      try {
+        existing.socket.terminate();
+      } catch {}
+    }
+
     const agentConn: AgentConnection = {
       socket,
       deviceInfo: { ...info, isOnline: true, lastSeen: Date.now() },
@@ -37,6 +46,15 @@ export class DeviceManager {
     socket.on('message', (data: string) => {
       try {
         const payload = JSON.parse(data.toString());
+        if (payload.type === 'ping') {
+          agentConn.deviceInfo.isOnline = true;
+          agentConn.deviceInfo.lastSeen = Date.now();
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+          }
+          return;
+        }
+
         if (payload.type === 'tool_result' && payload.requestId) {
           const pending = agentConn.pendingRequests.get(payload.requestId);
           if (pending) {
@@ -54,10 +72,18 @@ export class DeviceManager {
 
     socket.on('close', () => {
       console.warn(`[DeviceManager] Device disconnected: ${connectionId}`);
-      if (this.agents.has(connectionId)) {
-        const ag = this.agents.get(connectionId)!;
+      const ag = this.agents.get(connectionId);
+      if (ag && ag.socket === socket) {
         ag.deviceInfo.isOnline = false;
         ag.deviceInfo.lastSeen = Date.now();
+      }
+    });
+
+    socket.on('error', (err) => {
+      console.error(`[DeviceManager] Socket error for ${connectionId}:`, err.message);
+      const ag = this.agents.get(connectionId);
+      if (ag && ag.socket === socket) {
+        ag.deviceInfo.isOnline = false;
       }
     });
 

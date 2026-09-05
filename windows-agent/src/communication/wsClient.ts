@@ -20,6 +20,7 @@ export class AgentWSClient {
   private agentName: string;
   private isRunning: boolean = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
+  private heartbeatTimer: NodeJS.Timeout | null = null;
   private security: AgentSecurity;
 
   constructor(backendUrl: string, pairingToken: string = '', agentName: string = 'WAR-Windows-PC') {
@@ -36,11 +37,46 @@ export class AgentWSClient {
 
   public stop() {
     this.isRunning = false;
+    this.stopHeartbeat();
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     if (this.ws) {
-      this.ws.close();
+      try { this.ws.close(); } catch {}
       this.ws = null;
     }
+  }
+
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.send({ type: 'ping', timestamp: Date.now() });
+      } else {
+        this.stopHeartbeat();
+        if (this.isRunning) this.scheduleReconnect();
+      }
+    }, 10000); // Heartbeat every 10 seconds to keep Render proxy alive
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  private scheduleReconnect() {
+    if (!this.isRunning) return;
+    if (this.reconnectTimer) return;
+    this.stopHeartbeat();
+    if (this.ws) {
+      try { this.ws.terminate(); } catch {}
+      this.ws = null;
+    }
+    console.warn('[WAR Windows Agent] Reconnecting to backend in 2s...');
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connect();
+    }, 2000);
   }
 
   private connect() {
@@ -60,6 +96,7 @@ export class AgentWSClient {
       this.ws.on('open', () => {
         console.log(`[WAR Windows Agent] ✅ Connected and authenticated with WAR AI Backend.`);
         this.sendDeviceInfo();
+        this.startHeartbeat();
       });
 
       this.ws.on('message', async (data: string) => {
@@ -69,6 +106,8 @@ export class AgentWSClient {
             await this.handleToolExecution(payload.request);
           } else if (payload.type === 'ping') {
             this.send({ type: 'pong', timestamp: Date.now() });
+          } else if (payload.type === 'pong') {
+            // Heartbeat confirmed
           }
         } catch (err: any) {
           console.error('[WAR Windows Agent] Error handling message:', err.message);
@@ -76,21 +115,17 @@ export class AgentWSClient {
       });
 
       this.ws.on('close', () => {
-        console.warn('[WAR Windows Agent] Disconnected from backend. Reconnecting in 3s...');
-        this.ws = null;
-        if (this.isRunning) {
-          this.reconnectTimer = setTimeout(() => this.connect(), 3000);
-        }
+        console.warn('[WAR Windows Agent] Disconnected from backend.');
+        this.scheduleReconnect();
       });
 
       this.ws.on('error', (err) => {
         console.error('[WAR Windows Agent] Connection error:', err.message);
+        this.scheduleReconnect();
       });
     } catch (err: any) {
       console.error('[WAR Windows Agent] Connection setup failed:', err.message);
-      if (this.isRunning) {
-        this.reconnectTimer = setTimeout(() => this.connect(), 3000);
-      }
+      this.scheduleReconnect();
     }
   }
 
