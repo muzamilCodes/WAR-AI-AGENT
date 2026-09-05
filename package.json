@@ -17,13 +17,16 @@
     "dev:frontend": "npm run dev --workspace=frontend",
     "build": "npm run build --workspace=shared && npm run build --workspace=backend && npm run build --workspace=windows-agent && npm run build --workspace=frontend",
     "build:backend": "npm run build --workspace=shared && npm run build --workspace=backend",
+    "postinstall": "npm run build:backend",
     "test": "npm run test --workspace=backend && npm run test --workspace=windows-agent",
     "start:agent": "npm run start --workspace=windows-agent",
     "start:backend": "npm run start --workspace=backend"
   },
-  "devDependencies": {
-    "concurrently": "^9.1.2",
+  "dependencies": {
     "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   },
   "keywords": [
     "ai",
