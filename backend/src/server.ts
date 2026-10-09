@@ -10,7 +10,7 @@ import { WSHub } from './services/wsHub';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config();
 
-const PORT = process.env.PORT || 4000;
+const PORT = Number(process.env.PORT) || 4000;
 const app = express();
 
 app.use(cors({ origin: '*' }));
@@ -35,9 +35,9 @@ const server = http.createServer(app);
 // Attach Realtime WebSocket Hub
 new WSHub(server);
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`=======================================================`);
-  console.log(`🤖 WAR AI Backend Engine running on http://localhost:${PORT}`);
-  console.log(`📡 WebSocket Hub active on ws://localhost:${PORT}`);
+  console.log(`🤖 WAR AI Backend Engine running on http://0.0.0.0:${PORT}`);
+  console.log(`📡 WebSocket Hub active on ws://0.0.0.0:${PORT}`);
   console.log(`=======================================================`);
 });
