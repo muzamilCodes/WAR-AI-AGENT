@@ -1,15 +1,23 @@
 import { SupportedLanguage } from '@war-ai/shared';
 
 export class MultilingualEngine {
-  // Common Roman Hindi/Urdu words dictionary
-  private static readonly HINDI_URDU_ROMAN_KEYWORDS = [
+  // Common Roman Hindi/Urdu words dictionary - using Set for O(1) lookup
+  private static readonly HINDI_URDU_ROMAN_KEYWORDS = new Set([
     'kholo', 'khol', 'kholna', 'khol do', 'chalao', 'chala do', 'chala', 'chalana',
     'karo', 'kar do', 'kar', 'karna', 'band', 'hatao', 'dhoondo', 'dhoond', 'khojo',
     'iska', 'iski', 'iske', 'isko', 'usko', 'uska', 'uski', 'uske', 'ye', 'yeh', 'woh', 'wo',
     'wala', 'wali', 'bhai', 'boss', 'mera', 'meri', 'mere', 'apna', 'apni', 'kaunsa', 'kaunsi',
     'kya', 'hai', 'hain', 'mein', 'par', 'se', 'ko', 'aur', 'phir', 'bhi', 'ruko', 'bas',
     'shuru', 'batao', 'dikhao', 'sunao', 'suno'
-  ];
+  ]);
+
+  private static readonly STOP_KEYWORDS = new Set([
+    'stop', 'ruko', 'ruk jao', 'bas', 'bas karo', 'cancel', 'cancel karo',
+    'chup', 'chup raho', 'shanti', 'rok do', 'abort', 'pause', 'hold on',
+    'रुको', 'बस', 'روکو', 'بس'
+  ]);
+
+  private static readonly PRONOUN_REGEX = /\b(?:iska|iski|iske|isko|usko|uska|uski|uske|ye wala|yeh wala|woh wala|is project|is folder|its|this|that|it)\b/i;
 
   public static detectLanguage(text: string): SupportedLanguage {
     if (!text || text.trim() === '') return 'english';
@@ -30,7 +38,7 @@ export class MultilingualEngine {
     
     let hindiUrduWordCount = 0;
     for (const w of words) {
-      if (this.HINDI_URDU_ROMAN_KEYWORDS.includes(w)) {
+      if (this.HINDI_URDU_ROMAN_KEYWORDS.has(w)) {
         hindiUrduWordCount++;
       }
     }
@@ -50,23 +58,18 @@ export class MultilingualEngine {
 
   public static isInterruptionCommand(text: string): boolean {
     const lower = text.toLowerCase().trim();
-    const stopKeywords = [
-      'stop', 'ruko', 'ruk jao', 'bas', 'bas karo', 'cancel', 'cancel karo',
-      'chup', 'chup raho', 'shanti', 'rok do', 'abort', 'pause', 'hold on',
-      'रुको', 'बस', 'روکو', 'بس'
-    ];
+    if (this.STOP_KEYWORDS.has(lower)) return true;
 
-    return stopKeywords.some(kw => lower === kw || lower.startsWith(kw + ' ') || lower.endsWith(' ' + kw));
+    for (const kw of this.STOP_KEYWORDS) {
+      if (lower.startsWith(kw + ' ') || lower.endsWith(' ' + kw)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public static hasPronounReference(text: string): boolean {
-    const lower = text.toLowerCase();
-    const pronouns = [
-      'iska', 'iski', 'iske', 'isko', 'usko', 'uska', 'uski', 'uske',
-      'ye wala', 'yeh wala', 'woh wala', 'is project', 'is folder',
-      'its', 'this', 'that', 'it'
-    ];
-    return pronouns.some(p => new RegExp(`\\b${p}\\b`, 'i').test(lower));
+    return this.PRONOUN_REGEX.test(text);
   }
 
   public static generateNaturalResponse(

@@ -2,18 +2,18 @@ import { ToolName } from '@war-ai/shared';
 
 export interface ParsedIntent {
   primaryIntent:
-    | 'OPEN_APP'
-    | 'OPEN_PROJECT'
-    | 'OPEN_VSCODE'
-    | 'OPEN_TERMINAL'
-    | 'RUN_COMMAND'
-    | 'OPEN_FOLDER'
-    | 'FILE_OPERATION'
-    | 'BROWSER_ACTION'
-    | 'SCREEN_ACTION'
-    | 'KEYBOARD_MOUSE'
-    | 'STOP_OPERATION'
-    | 'CONVERSATION';
+  | 'OPEN_APP'
+  | 'OPEN_PROJECT'
+  | 'OPEN_VSCODE'
+  | 'OPEN_TERMINAL'
+  | 'RUN_COMMAND'
+  | 'OPEN_FOLDER'
+  | 'FILE_OPERATION'
+  | 'BROWSER_ACTION'
+  | 'SCREEN_ACTION'
+  | 'KEYBOARD_MOUSE'
+  | 'STOP_OPERATION'
+  | 'CONVERSATION';
   confidence: number;
   entities: {
     appName?: string;
@@ -36,8 +36,8 @@ export class IntentDetector {
     const lower = raw.toLowerCase();
 
     // 1. Check Stop / Interruption
-    if (/^(ruko|stop|bas|cancel|ruk jao|rok do|abort|रुको|बस|रोक दो|कैंसिल)$/i.test(lower) || 
-        /(?:chup|shanti|band karo|ab ruko|बस करो|चुप)/i.test(lower)) {
+    if (/^(ruko|stop|bas|cancel|ruk jao|rok do|abort|रुको|बस|रोक दो|कैंसिल)$/i.test(lower) ||
+      /(?:chup|shanti|band karo|ab ruko|बस करो|चुप)/i.test(lower)) {
       return {
         primaryIntent: 'STOP_OPERATION',
         confidence: 1.0,
@@ -182,11 +182,11 @@ export class IntentDetector {
     // 5. File & Folder Operations (Create, Open, Delete)
     if (/(?:folder|फ़ोल्डर|डायरेक्टरी|directory)/i.test(lower)) {
       if (/(?:banao|create|make|new|नया|बनाओ)/i.test(lower)) {
-        const folderNameMatch = raw.match(/(?:naam|name)\s+["']?([a-zA-Z0-9_-]+)["']?/i) || 
+        const folderNameMatch = raw.match(/(?:naam|name)\s+["']?([a-zA-Z0-9_-]+)["']?/i) ||
           raw.match(/(?:folder|directory|फ़ोल्डर)\s+["']?([a-zA-Z0-9_-]+)["']?/i) ||
           raw.match(/(?:banao|create)\s+["']?([a-zA-Z0-9_-]+)["']?/i);
-        const folderName = (folderNameMatch && !['ek', 'banao', 'karo', 'par', 'pe', 'mein', 'desktop'].includes(folderNameMatch[1].toLowerCase())) 
-          ? folderNameMatch[1].trim() 
+        const folderName = (folderNameMatch && !['ek', 'banao', 'karo', 'par', 'pe', 'mein', 'desktop'].includes(folderNameMatch[1].toLowerCase()))
+          ? folderNameMatch[1].trim()
           : 'NewFolder';
         return {
           primaryIntent: 'FILE_OPERATION',
@@ -196,10 +196,10 @@ export class IntentDetector {
         };
       }
       if (/(?:kholo|open|खोलो|dekho)/i.test(lower)) {
-        const folderNameMatch = raw.match(/([a-zA-Z0-9_-]+)\s+(?:folder|फ़ोल्डर|directory)/i) || 
+        const folderNameMatch = raw.match(/([a-zA-Z0-9_-]+)\s+(?:folder|फ़ोल्डर|directory)/i) ||
           raw.match(/(?:folder|directory|फ़ोल्डर)\s+["']?([a-zA-Z0-9_-]+)["']?/i);
         const folderName = (folderNameMatch && !['ek', 'kholo', 'open', 'karo', 'par', 'pe', 'mein'].includes(folderNameMatch[1].toLowerCase()))
-          ? folderNameMatch[1].trim() 
+          ? folderNameMatch[1].trim()
           : 'Desktop';
         return {
           primaryIntent: 'OPEN_FOLDER',
@@ -212,11 +212,11 @@ export class IntentDetector {
 
     if (/(?:file|फ़ाइल|फाइल|document|text file)/i.test(lower)) {
       if (/(?:banao|create|make|write|लिखो|बनाओ)/i.test(lower)) {
-        const fileNameMatch = raw.match(/(?:naam|name)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i) || 
+        const fileNameMatch = raw.match(/(?:naam|name)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i) ||
           raw.match(/(?:file|फ़ाइल)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i) ||
           raw.match(/(?:banao|create)\s+["']?([a-zA-Z0-9_\-\.]+)["']?/i);
-        const fileName = (fileNameMatch && !['ek', 'banao', 'karo', 'par', 'pe', 'mein', 'desktop'].includes(fileNameMatch[1].toLowerCase())) 
-          ? fileNameMatch[1].trim() 
+        const fileName = (fileNameMatch && !['ek', 'banao', 'karo', 'par', 'pe', 'mein', 'desktop'].includes(fileNameMatch[1].toLowerCase()))
+          ? fileNameMatch[1].trim()
           : 'note.txt';
         return {
           primaryIntent: 'FILE_OPERATION',
@@ -238,13 +238,16 @@ export class IntentDetector {
     }
 
     // 6. VS Code & Coding Projects (Priority detection)
-    const hasVSCode = 
+    const hasVSCode =
       /(?:v[s|d]?[-\s]?code|visual\s*studio\s*code|\bvsc\b|\bcode\b|vdscode|वीएस\s*कोड|विजुअल\s*स्टूडियो|कोड)/i.test(lower);
 
     const isProjectOpen = /(?:project|प्रोजेक्ट)/i.test(lower) || /(?:sportify|स्पोर्टिफाई)/i.test(lower);
-    const hasProjectMatch = isProjectOpen ? (lower.match(/([a-zA-Z0-9_-]+)\s+(?:project|वाला|प्रोजेक्ट)/i) || 
-      lower.match(/(?:project|वाला|प्रोजेक्ट)\s+([a-zA-Z0-9_-]+)/i)) : null;
-    const projectName = hasProjectMatch ? hasProjectMatch[1] : (/(?:sportify|स्पोर्टिफाई)/i.test(lower) ? 'Sportify' : undefined);
+    const hasProjectMatch = isProjectOpen ? (raw.match(/([a-zA-Z0-9_-]+)\s+(?:project|वाला|प्रोजेक्ट)/i) ||
+      raw.match(/(?:project|वाला|प्रोजेक्ट)\s+([a-zA-Z0-9_-]+)/i)) : null;
+    const matchedName = hasProjectMatch ? hasProjectMatch[1] : undefined;
+    const projectName = matchedName
+      ? (matchedName.toLowerCase() === 'sportify' ? 'Sportify' : matchedName)
+      : (/(?:sportify|स्पोर्टिफाई)/i.test(lower) ? 'Sportify' : undefined);
 
     if (projectName || (hasVSCode && /(?:project|प्रोजेक्ट)/i.test(lower))) {
       const pName = projectName || (hasVSCode ? 'Sportify' : 'project');
@@ -482,7 +485,7 @@ export class IntentDetector {
           confidence: 0.85,
           entities: { appName: cleanGeneric },
           suggestedTools: [{ tool: 'open_application', args: { name: cleanGeneric } }]
-        };
+        };  
       }
     }
 
